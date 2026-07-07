@@ -9,8 +9,12 @@ create table if not exists participants (
   pitch_order int not null,
   topic text,
   status text default 'pending',
+  slide_url text,
   created_at timestamptz default now()
 );
+
+-- migration for databases created before slide_url existed (safe to re-run)
+alter table participants add column if not exists slide_url text;
 
 create table if not exists judges (
   id uuid primary key default gen_random_uuid(),

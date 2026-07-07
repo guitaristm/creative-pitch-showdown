@@ -60,4 +60,16 @@ assert.strictEqual(awards.get('junior_2'), null)
 // Override wins
 assert.strictEqual(calculateSuggestedAwards(ranked, new Map([['grand_prix', 'p2']])).get('grand_prix'), 'p2')
 
+// Embed URL conversion
+const { toEmbedUrl } = await import('./embed.ts')
+assert.strictEqual(
+  toEmbedUrl('https://docs.google.com/presentation/d/1AbC_dEf-123/edit?usp=sharing'),
+  'https://docs.google.com/presentation/d/1AbC_dEf-123/embed?start=false&loop=false&rm=minimal',
+)
+assert.strictEqual(
+  toEmbedUrl('https://www.canva.com/design/DAF123abc/xYz_456/view'),
+  'https://www.canva.com/design/DAF123abc/xYz_456/view?embed',
+)
+assert.strictEqual(toEmbedUrl('https://example.com/deck.html'), 'https://example.com/deck.html')
+
 console.log('scoring.test.ts: all assertions passed')

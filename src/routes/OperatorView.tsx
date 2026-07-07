@@ -34,8 +34,15 @@ export default function OperatorView() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [selectedId, setSelectedId] = useState<string>('')
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
+  const [slideDraft, setSlideDraft] = useState('')
   const [saving, setSaving] = useState(false)
+  const [now, setNow] = useState(Date.now())
   const { toast, notify } = useToast()
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   async function loadAll() {
     if (!supabase) return
@@ -90,6 +97,10 @@ export default function OperatorView() {
     }
     setDrafts(next)
   }, [selectedId, scores, judges])
+
+  useEffect(() => {
+    setSlideDraft(participants.find((p) => p.id === selectedId)?.slide_url ?? '')
+  }, [selectedId, participants])
 
   const selected = participants.find((p) => p.id === selectedId)
   const rankings = useMemo(() => calculateRankings(participants, scores, judges, consensus), [participants, scores, judges, consensus])
@@ -172,6 +183,52 @@ export default function OperatorView() {
     }
   }
 
+  async function saveSlideUrl() {
+    if (!supabase || !selectedId) return
+    const { error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', selectedId)
+    if (error)
+      notify({ kind: 'error', text: error.message.includes('slide_url') ? 'Missing column — run in Supabase SQL editor: alter table participants add column slide_url text;' : `Save failed: ${error.message}` })
+    else {
+      notify({ kind: 'success', text: 'Presentation link saved.' })
+      loadAll()
+    }
+  }
+
+  async function fillTestScores() {
+    if (!supabase) return
+    if (!window.confirm('Fill ALL participants with random test scores? Existing scores will be overwritten.')) return
+    const rand = (max: number) => Math.floor(Math.random() * (max + 1))
+    const rows = participants.flatMap((p) =>
+      judges.map((j) => ({
+        participant_id: p.id, judge_id: j.id,
+        concept_score: rand(3), visual_score: rand(10), technical_score: rand(4), business_score: rand(3),
+        comment: null, input_by: 'test-mode', verified: true, updated_at: new Date().toISOString(),
+      })),
+    )
+    const { error } = await supabase.from('scores').upsert(rows, { onConflict: 'participant_id,judge_id' })
+    if (error) notify({ kind: 'error', text: `Test fill failed: ${error.message}` })
+    else {
+      notify({ kind: 'success', text: `Filled ${rows.length} random test scores.` })
+      loadAll()
+    }
+  }
+
+  async function resetAllScores() {
+    if (!supabase) return
+    if (!window.confirm('Delete ALL scores, award overrides and consensus entries? This cannot be undone.')) return
+    const [a, b, c] = await Promise.all([
+      supabase.from('scores').delete().not('id', 'is', null),
+      supabase.from('award_overrides').delete().not('id', 'is', null),
+      supabase.from('final_consensus').delete().not('id', 'is', null),
+    ])
+    const error = a.error || b.error || c.error
+    if (error) notify({ kind: 'error', text: `Reset failed: ${error.message}` })
+    else {
+      notify({ kind: 'success', text: 'All scoring data reset.' })
+      loadAll()
+    }
+  }
+
   async function saveConsensus(participantId: string, adjustment: number) {
     if (!supabase) return
     const { error } = await supabase
@@ -192,6 +249,11 @@ export default function OperatorView() {
   const summary = selected ? calculateParticipantScore(selected, scores, judges) : null
   const missingScores = participants.length * judges.length - scores.length
   const unverified = scores.filter((s) => !s.verified).length
+  const timerRemaining = display
+    ? display.timer_running
+      ? Math.max(0, display.timer_seconds - Math.floor((now - new Date(display.updated_at).getTime()) / 1000))
+      : display.timer_seconds
+    : 300
 
   return (
     <div className="operator">
@@ -240,9 +302,15 @@ export default function OperatorView() {
             <input type="checkbox" checked={display?.show_winner_score ?? false} onChange={(e) => saveDisplay({ show_winner_score: e.target.checked })} />
             Show winner score on reveal
           </label>
+          <label>Pitch timer</label>
           <div className="row">
-            <button onClick={() => saveDisplay({ timer_seconds: 300, timer_running: true })}>▶ Start 5:00 timer</button>
-            <button className="ghost" onClick={() => saveDisplay({ timer_running: false, timer_seconds: 300 })}>Reset timer</button>
+            <span className="timer-display">{`${Math.floor(timerRemaining / 60)}:${String(timerRemaining % 60).padStart(2, '0')}`}{display?.timer_running ? '' : ' ⏸'}</span>
+            {display?.timer_running ? (
+              <button onClick={() => saveDisplay({ timer_running: false, timer_seconds: timerRemaining })}>⏸ Pause</button>
+            ) : (
+              <button onClick={() => saveDisplay({ timer_running: true })}>▶ {display && display.timer_seconds < 300 ? 'Resume' : 'Start 5:00'}</button>
+            )}
+            <button className="ghost" onClick={() => saveDisplay({ timer_running: false, timer_seconds: 300 })}>Reset</button>
           </div>
         </section>
 
@@ -258,6 +326,11 @@ export default function OperatorView() {
           {selected && (
             <>
               <p className="muted">{selected.name} · {selected.level} · Pitch #{selected.pitch_order}</p>
+              <div className="row slide-row">
+                <input type="url" placeholder="Presentation link (Google Slides, Canva, …) — shown on audience Now Pitching screen" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
+                <button onClick={saveSlideUrl}>Save link</button>
+                {selected.slide_url && <a href={selected.slide_url} target="_blank" rel="noreferrer">open ↗</a>}
+              </div>
               <table className="score-table">
                 <thead>
                   <tr>
@@ -378,6 +451,12 @@ export default function OperatorView() {
             <li>Unverified scores: {unverified}</li>
           </ul>
           <button className="ghost" onClick={loadAll}>↻ Refresh now</button>
+          <h2 style={{ marginTop: '1.2rem' }}>Testing / Rehearsal <span className="badge red">danger</span></h2>
+          <div className="row">
+            <button onClick={fillTestScores}>🎲 Fill random test scores</button>
+            <button className="danger" onClick={resetAllScores}>🗑 Reset all scores</button>
+          </div>
+          <p className="muted">Use before the event to rehearse the full flow, then reset. Both ask for confirmation.</p>
         </section>
       </div>
     </div>

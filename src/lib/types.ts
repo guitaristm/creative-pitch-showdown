@@ -10,6 +10,7 @@ export interface Participant {
   pitch_order: number
   topic: string | null
   status: string
+  slide_url?: string | null
 }
 
 export interface Judge {

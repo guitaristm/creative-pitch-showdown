@@ -61,8 +61,15 @@ After adding the env vars, redeploy.
 ## 6. Using the Operator View (`/operator`)
 
 - **Display Control** — pick the screen mode; every change saves immediately and pushes to the
-  audience screen via realtime. Set the current participant before "Now Pitching". Start the
-  5:00 timer when the pitch begins.
+  audience screen via realtime. Set the current participant before "Now Pitching". The pitch
+  timer supports Start / Pause / Resume / Reset and the audience screen mirrors it live.
+- **Presentation slides** — in Score Input, paste a participant's presentation link
+  (Google Slides / Canva share links auto-convert to embed form). When that participant is
+  "Now Pitching", the audience screen embeds the deck fullscreen with a name + timer bar on top.
+  Videos inside the deck play in the embed. Requires the `slide_url` column (in schema.sql).
+- **Testing / Rehearsal** — in the Data Health panel: "Fill random test scores" populates all
+  102 score rows for a full rehearsal; "Reset all scores" wipes scores, award overrides and
+  consensus entries. Both ask for confirmation.
 - **Score Input** — select a participant, type each judge's four criteria scores from the paper
   sheet (Tab moves between fields; totals compute live; invalid values highlight red; judges with
   no scores yet highlight as missing). Press **Save all judge scores**.
