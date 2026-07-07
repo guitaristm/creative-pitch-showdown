@@ -64,7 +64,7 @@ assert.strictEqual(calculateSuggestedAwards(ranked, new Map([['grand_prix', 'p2'
 const { toEmbedUrl } = await import('./embed.ts')
 assert.strictEqual(
   toEmbedUrl('https://docs.google.com/presentation/d/1AbC_dEf-123/edit?usp=sharing'),
-  'https://docs.google.com/presentation/d/1AbC_dEf-123/embed?start=false&loop=false&rm=minimal',
+  'https://docs.google.com/presentation/d/1AbC_dEf-123/embed?start=false&loop=false&delayms=60000',
 )
 assert.strictEqual(
   toEmbedUrl('https://www.canva.com/design/DAF123abc/xYz_456/view'),
@@ -72,7 +72,7 @@ assert.strictEqual(
 )
 assert.strictEqual(
   toEmbedUrl('https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/pubhtml'),
-  'https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/embed?start=false&loop=false&rm=minimal',
+  'https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/embed?start=false&loop=false&delayms=60000',
 )
 assert.strictEqual(toEmbedUrl('https://example.com/deck.html'), 'https://example.com/deck.html')
 
