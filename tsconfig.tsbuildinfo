@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/components/toast.tsx","./src/lib/scoring.ts","./src/lib/supabase.ts","./src/lib/types.ts","./src/routes/audienceview.tsx","./src/routes/operatorview.tsx"],"version":"5.9.3"}
