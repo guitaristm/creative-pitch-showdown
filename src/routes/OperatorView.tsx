@@ -147,11 +147,12 @@ export default function OperatorView() {
 
   async function saveDisplay(patch: Partial<DisplayState>) {
     if (!supabase || !display) return
-    const next = { ...display, ...patch, updated_at: new Date().toISOString() }
-    const { error } = await supabase.from('display_state').update(next).eq('id', 1)
+    // patch only the changed fields — writing the whole row races with rapid consecutive edits
+    const changes = { ...patch, updated_at: new Date().toISOString() }
+    const { error } = await supabase.from('display_state').update(changes).eq('id', 1)
     if (error) notify({ kind: 'error', text: `Display update failed: ${error.message}` })
     else {
-      setDisplay(next)
+      setDisplay((prev) => (prev ? { ...prev, ...changes } : prev))
       notify({ kind: 'success', text: 'Display state saved — audience screen updated.' })
     }
   }
