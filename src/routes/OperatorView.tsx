@@ -185,9 +185,12 @@ export default function OperatorView() {
 
   async function saveSlideUrl() {
     if (!supabase || !selectedId) return
-    const { error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', selectedId)
+    // .select() so an RLS-blocked update (0 rows, no error) is detected instead of silently "succeeding"
+    const { data, error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', selectedId).select()
     if (error)
       notify({ kind: 'error', text: error.message.includes('slide_url') ? 'Missing column — run in Supabase SQL editor: alter table participants add column slide_url text;' : `Save failed: ${error.message}` })
+    else if (!data?.length)
+      notify({ kind: 'error', text: 'Save blocked — run in Supabase SQL editor: create policy "anon write participants" on participants for update using (true) with check (true);' })
     else {
       notify({ kind: 'success', text: 'Presentation link saved.' })
       loadAll()

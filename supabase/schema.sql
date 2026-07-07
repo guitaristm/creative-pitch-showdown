@@ -127,6 +127,7 @@ create policy "anon read display_state" on display_state for select using (true)
 create policy "anon read award_overrides" on award_overrides for select using (true);
 create policy "anon read final_consensus" on final_consensus for select using (true);
 
+create policy "anon write participants" on participants for update using (true) with check (true);
 create policy "anon write scores" on scores for all using (true) with check (true);
 create policy "anon write display_state" on display_state for all using (true) with check (true);
 create policy "anon write award_overrides" on award_overrides for all using (true) with check (true);
