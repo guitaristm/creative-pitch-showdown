@@ -98,9 +98,10 @@ export default function OperatorView() {
     setDrafts(next)
   }, [selectedId, scores, judges])
 
+  const currentId = display?.current_participant_id ?? null
   useEffect(() => {
-    setSlideDraft(participants.find((p) => p.id === selectedId)?.slide_url ?? '')
-  }, [selectedId, participants])
+    setSlideDraft(participants.find((p) => p.id === currentId)?.slide_url ?? '')
+  }, [currentId, participants])
 
   const selected = participants.find((p) => p.id === selectedId)
   const rankings = useMemo(() => calculateRankings(participants, scores, judges, consensus), [participants, scores, judges, consensus])
@@ -184,9 +185,9 @@ export default function OperatorView() {
   }
 
   async function saveSlideUrl() {
-    if (!supabase || !selectedId) return
+    if (!supabase || !currentId) return
     // .select() so an RLS-blocked update (0 rows, no error) is detected instead of silently "succeeding"
-    const { data, error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', selectedId).select()
+    const { data, error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', currentId).select()
     if (error)
       notify({ kind: 'error', text: error.message.includes('slide_url') ? 'Missing column — run in Supabase SQL editor: alter table participants add column slide_url text;' : `Save failed: ${error.message}` })
     else if (!data?.length)
@@ -282,6 +283,18 @@ export default function OperatorView() {
               <option key={p.id} value={p.id}>#{p.pitch_order} {p.name} ({p.level})</option>
             ))}
           </select>
+          {currentId && (
+            <>
+              <label>Presentation link for {nameOf(currentId)} (shown on Now Pitching)</label>
+              <div className="row slide-row">
+                <input type="url" placeholder="Google Slides / Canva share link" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
+                <button onClick={saveSlideUrl}>Save link</button>
+                {participants.find((p) => p.id === currentId)?.slide_url && (
+                  <a href={participants.find((p) => p.id === currentId)!.slide_url!} target="_blank" rel="noreferrer">open ↗</a>
+                )}
+              </div>
+            </>
+          )}
           <label>Reveal award</label>
           <select value={display?.selected_award ?? ''} onChange={(e) => saveDisplay({ selected_award: e.target.value || null })}>
             <option value="">— none —</option>
@@ -329,11 +342,6 @@ export default function OperatorView() {
           {selected && (
             <>
               <p className="muted">{selected.name} · {selected.level} · Pitch #{selected.pitch_order}</p>
-              <div className="row slide-row">
-                <input type="url" placeholder="Presentation link (Google Slides, Canva, …) — shown on audience Now Pitching screen" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
-                <button onClick={saveSlideUrl}>Save link</button>
-                {selected.slide_url && <a href={selected.slide_url} target="_blank" rel="noreferrer">open ↗</a>}
-              </div>
               <table className="score-table">
                 <thead>
                   <tr>
