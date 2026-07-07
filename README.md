@@ -25,6 +25,9 @@ npm test               # scoring logic self-check
 1. Go to [supabase.com](https://supabase.com) → New project (any region, free tier is fine).
 2. Project Settings → API: copy the **Project URL** and **anon public key**.
 
+> ⚠️ Use the plain project URL (`https://xxxx.supabase.co`) — **not** the REST endpoint
+> ending in `/rest/v1/`. The app strips that suffix defensively, but paste the clean one.
+
 ## 3. Run the schema (also seeds participants & judges)
 
 1. Dashboard → **SQL Editor** → New query.
