@@ -70,6 +70,10 @@ assert.strictEqual(
   toEmbedUrl('https://www.canva.com/design/DAF123abc/xYz_456/view'),
   'https://www.canva.com/design/DAF123abc/xYz_456/view?embed',
 )
+assert.strictEqual(
+  toEmbedUrl('https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/pubhtml'),
+  'https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/embed?start=false&loop=false&rm=minimal',
+)
 assert.strictEqual(toEmbedUrl('https://example.com/deck.html'), 'https://example.com/deck.html')
 
 console.log('scoring.test.ts: all assertions passed')
