@@ -104,7 +104,8 @@ export function calculateRankings(
       overallRank: i + 1,
       levelRank: levelCounters[r.participant.level],
       needsConsensus:
-        (i > 0 && fullyTied(r, results[i - 1])) || (i < results.length - 1 && fullyTied(r, results[i + 1])),
+        r.scoreCount > 0 && // rows with no scores yet are trivially tied — not a real consensus case
+        ((i > 0 && fullyTied(r, results[i - 1])) || (i < results.length - 1 && fullyTied(r, results[i + 1]))),
     }
   })
 }

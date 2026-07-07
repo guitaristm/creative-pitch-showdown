@@ -147,8 +147,11 @@ export default function OperatorView() {
 
   async function saveDisplay(patch: Partial<DisplayState>) {
     if (!supabase || !display) return
-    // patch only the changed fields — writing the whole row races with rapid consecutive edits
-    const changes = { ...patch, updated_at: new Date().toISOString() }
+    // patch only the changed fields — writing the whole row races with rapid consecutive edits.
+    // updated_at is the audience timer anchor: bump it only on timer operations, otherwise
+    // unrelated edits mid-pitch (e.g. pre-selecting the reveal award) restart the countdown.
+    const changes: Partial<DisplayState> = { ...patch }
+    if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
     const { error } = await supabase.from('display_state').update(changes).eq('id', 1)
     if (error) notify({ kind: 'error', text: `Display update failed: ${error.message}` })
     else {

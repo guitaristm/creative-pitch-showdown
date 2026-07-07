@@ -66,6 +66,7 @@ export default function AudienceView() {
   const winner = byId(state.reveal_participant_id)
   const award = AWARDS.find((a) => a.key === state.selected_award)
 
+  // updated_at is only bumped by timer start/reset (see OperatorView.saveDisplay), so it anchors the countdown
   const elapsed = state.timer_running ? Math.floor((now - new Date(state.updated_at).getTime()) / 1000) : 0
   const remaining = Math.max(0, state.timer_seconds - elapsed)
   const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
