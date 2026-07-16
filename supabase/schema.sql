@@ -10,11 +10,15 @@ create table if not exists participants (
   topic text,
   status text default 'pending',
   slide_url text,
+  video_url text,
   created_at timestamptz default now()
 );
 
--- migration for databases created before slide_url existed (safe to re-run)
+alter table display_state add column if not exists show_video boolean default false;
+
+-- migrations for databases created before these columns existed (safe to re-run)
 alter table participants add column if not exists slide_url text;
+alter table participants add column if not exists video_url text;
 
 create table if not exists judges (
   id uuid primary key default gen_random_uuid(),
@@ -49,6 +53,7 @@ create table if not exists display_state (
   selected_award text,
   reveal_participant_id uuid references participants(id),
   show_winner_score boolean default false,
+  show_video boolean default false,
   timer_seconds int default 300,
   timer_running boolean default false,
   updated_at timestamptz default now()

@@ -1,6 +1,6 @@
 // AUDIENCE VIEW — shown on projector. Never imports rankings, scores, or operator controls.
 import { useEffect, useState } from 'react'
-import { toEmbedUrl } from '../lib/embed.ts'
+import { toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, EVENT, type DisplayState, type Participant } from '../lib/types.ts'
 
@@ -83,17 +83,21 @@ export default function AudienceView() {
         </div>
       )}
 
-      {state.screen_mode === 'now_pitching' && current?.slide_url && (
+      {state.screen_mode === 'now_pitching' && current && (current.slide_url || (state.show_video && current.video_url)) && (
         <div className="pitch-stage fade-in">
           <div className="pitch-bar">
             <span className="pitch-name">{current.name}<span className="pitch-meta"> · {current.level} · Pitch #{current.pitch_order}</span></span>
             <span className="pitch-timer">{mmss}</span>
           </div>
-          <iframe className="slide-frame" src={toEmbedUrl(current.slide_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} slides`} />
+          {state.show_video && current.video_url ? (
+            <iframe key="video" className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
+          ) : (
+            <iframe key="slides" className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} slides`} />
+          )}
         </div>
       )}
 
-      {state.screen_mode === 'now_pitching' && !current?.slide_url && (
+      {state.screen_mode === 'now_pitching' && !current?.slide_url && !(state.show_video && current?.video_url) && (
         <div className="center fade-in">
           <p className="aud-kicker">Now Pitching</p>
           <h1 className="aud-title">{current?.name ?? '—'}</h1>

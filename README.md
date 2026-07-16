@@ -63,10 +63,15 @@ After adding the env vars, redeploy.
 - **Display Control** — pick the screen mode; every change saves immediately and pushes to the
   audience screen via realtime. Set the current participant before "Now Pitching". The pitch
   timer supports Start / Pause / Resume / Reset and the audience screen mirrors it live.
-- **Presentation slides** — in Score Input, paste a participant's presentation link
-  (Google Slides / Canva share links auto-convert to embed form). When that participant is
-  "Now Pitching", the audience screen embeds the deck fullscreen with a name + timer bar on top.
-  Videos inside the deck play in the embed. Requires the `slide_url` column (in schema.sql).
+- **Presentation slides** — in Display Control, pick the current participant and paste their
+  presentation link (Google Slides / Canva share links auto-convert to embed form). On
+  "Now Pitching" the audience screen embeds the deck fullscreen with a name + timer bar.
+- **Output videos** — videos *inside* an embedded deck will not play on third-party sites
+  (Google blocks Drive-video streaming there). Instead, paste the participant's video link
+  (Drive share link, YouTube, or direct .mp4) into "Output video link" and use the
+  **🎬 Show output video / 🖼 Back to slides** toggle — the audience screen switches between
+  the deck and Drive's own embeddable player, which does work on third-party sites.
+  Keep the video slide in the deck as a poster; play the real file via the toggle.
 - **Testing / Rehearsal** — in the Data Health panel: "Fill random test scores" populates all
   102 score rows for a full rehearsal; "Reset all scores" wipes scores, award overrides and
   consensus entries. Both ask for confirmation.

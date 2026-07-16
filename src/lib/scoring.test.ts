@@ -75,5 +75,13 @@ assert.strictEqual(
   'https://docs.google.com/presentation/d/e/2PACX-1vAbC_123/embed?start=false&loop=false&delayms=60000',
 )
 assert.strictEqual(toEmbedUrl('https://example.com/deck.html'), 'https://example.com/deck.html')
+const { toVideoEmbedUrl } = await import('./embed.ts')
+assert.strictEqual(
+  toVideoEmbedUrl('https://drive.google.com/file/d/1VU-yH8MkXhM164nJqYiFniAxZOB_oG85/view?usp=sharing'),
+  'https://drive.google.com/file/d/1VU-yH8MkXhM164nJqYiFniAxZOB_oG85/preview',
+)
+assert.strictEqual(toVideoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'https://www.youtube.com/embed/dQw4w9WgXcQ')
+assert.strictEqual(toVideoEmbedUrl('https://youtu.be/dQw4w9WgXcQ'), 'https://www.youtube.com/embed/dQw4w9WgXcQ')
+assert.strictEqual(toVideoEmbedUrl('https://example.com/pitch.mp4'), 'https://example.com/pitch.mp4')
 
 console.log('scoring.test.ts: all assertions passed')

@@ -11,6 +11,7 @@ export interface Participant {
   topic: string | null
   status: string
   slide_url?: string | null
+  video_url?: string | null
 }
 
 export interface Judge {
@@ -41,6 +42,7 @@ export interface DisplayState {
   selected_award: string | null
   reveal_participant_id: string | null
   show_winner_score: boolean
+  show_video?: boolean
   timer_seconds: number
   timer_running: boolean
   updated_at: string

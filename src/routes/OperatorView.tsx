@@ -35,6 +35,7 @@ export default function OperatorView() {
   const [selectedId, setSelectedId] = useState<string>('')
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [slideDraft, setSlideDraft] = useState('')
+  const [videoDraft, setVideoDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
   const { toast, notify } = useToast()
@@ -100,7 +101,9 @@ export default function OperatorView() {
 
   const currentId = display?.current_participant_id ?? null
   useEffect(() => {
-    setSlideDraft(participants.find((p) => p.id === currentId)?.slide_url ?? '')
+    const p = participants.find((x) => x.id === currentId)
+    setSlideDraft(p?.slide_url ?? '')
+    setVideoDraft(p?.video_url ?? '')
   }, [currentId, participants])
 
   const selected = participants.find((p) => p.id === selectedId)
@@ -164,7 +167,16 @@ export default function OperatorView() {
     // unrelated edits mid-pitch (e.g. pre-selecting the reveal award) restart the countdown.
     const changes: Partial<DisplayState> = { ...patch }
     if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
-    const { error } = await supabase.from('display_state').update(changes).eq('id', 1)
+    let { error } = await supabase.from('display_state').update(changes).eq('id', 1)
+    if (error?.message.includes('show_video')) {
+      // column not migrated yet — save the rest, surface the migration hint only if the toggle itself was used
+      delete changes.show_video
+      if (Object.keys(changes).length) ({ error } = await supabase.from('display_state').update(changes).eq('id', 1))
+      if ('show_video' in patch && Object.keys(patch).length === 1) {
+        notify({ kind: 'error', text: 'Missing column — run in Supabase SQL editor: alter table display_state add column show_video boolean default false;' })
+        return
+      }
+    }
     if (error) notify({ kind: 'error', text: `Display update failed: ${error.message}` })
     else {
       setDisplay((prev) => (prev ? { ...prev, ...changes } : prev))
@@ -184,16 +196,16 @@ export default function OperatorView() {
     }
   }
 
-  async function saveSlideUrl() {
+  async function saveParticipantLink(field: 'slide_url' | 'video_url', value: string) {
     if (!supabase || !currentId) return
     // .select() so an RLS-blocked update (0 rows, no error) is detected instead of silently "succeeding"
-    const { data, error } = await supabase.from('participants').update({ slide_url: slideDraft.trim() || null }).eq('id', currentId).select()
+    const { data, error } = await supabase.from('participants').update({ [field]: value.trim() || null }).eq('id', currentId).select()
     if (error)
-      notify({ kind: 'error', text: error.message.includes('slide_url') ? 'Missing column — run in Supabase SQL editor: alter table participants add column slide_url text;' : `Save failed: ${error.message}` })
+      notify({ kind: 'error', text: error.message.includes(field) ? `Missing column — run in Supabase SQL editor: alter table participants add column ${field} text;` : `Save failed: ${error.message}` })
     else if (!data?.length)
       notify({ kind: 'error', text: 'Save blocked — run in Supabase SQL editor: create policy "anon write participants" on participants for update using (true) with check (true);' })
     else {
-      notify({ kind: 'success', text: 'Presentation link saved.' })
+      notify({ kind: 'success', text: field === 'slide_url' ? 'Presentation link saved.' : 'Output video link saved.' })
       loadAll()
     }
   }
@@ -277,7 +289,7 @@ export default function OperatorView() {
             ))}
           </div>
           <label>Current participant (Now Pitching / Scoring)</label>
-          <select value={display?.current_participant_id ?? ''} onChange={(e) => saveDisplay({ current_participant_id: e.target.value || null })}>
+          <select value={display?.current_participant_id ?? ''} onChange={(e) => saveDisplay({ current_participant_id: e.target.value || null, show_video: false })}>
             <option value="">— none —</option>
             {participants.map((p) => (
               <option key={p.id} value={p.id}>#{p.pitch_order} {p.name} ({p.level})</option>
@@ -288,11 +300,24 @@ export default function OperatorView() {
               <label>Presentation link for {nameOf(currentId)} (shown on Now Pitching)</label>
               <div className="row slide-row">
                 <input type="url" placeholder="Google Slides / Canva share link" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
-                <button onClick={saveSlideUrl}>Save link</button>
+                <button onClick={() => saveParticipantLink('slide_url', slideDraft)}>Save link</button>
                 {participants.find((p) => p.id === currentId)?.slide_url && (
                   <a href={participants.find((p) => p.id === currentId)!.slide_url!} target="_blank" rel="noreferrer">open ↗</a>
                 )}
               </div>
+              <label>Output video link for {nameOf(currentId)} (Drive video / YouTube / mp4)</label>
+              <div className="row slide-row">
+                <input type="url" placeholder="Drive video share link — plays via Drive's player, not through the deck" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
+                <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save link</button>
+              </div>
+              {participants.find((p) => p.id === currentId)?.video_url && (
+                <button
+                  className={display?.show_video ? 'active' : ''}
+                  onClick={() => saveDisplay({ show_video: !display?.show_video })}
+                >
+                  {display?.show_video ? '🖼 Back to slides' : '🎬 Show output video'}
+                </button>
+              )}
             </>
           )}
           <label>Reveal award</label>
