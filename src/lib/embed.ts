@@ -13,6 +13,11 @@ export function toEmbedUrl(url: string): string {
  * Drive videos use the /preview player — Google allows framing it on third-party
  * sites, unlike videos inside an embedded Slides deck. YouTube → /embed. mp4 etc. pass through.
  */
+/** Direct video files (and Supabase Storage objects) play in a native <video> element, not an iframe. */
+export function isDirectVideo(url: string): boolean {
+  return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url) || url.includes('/storage/v1/object/public/')
+}
+
 export function toVideoEmbedUrl(url: string): string {
   const drive = url.match(/https:\/\/drive\.google\.com\/file\/d\/([\w-]+)/)
   if (drive) return `https://drive.google.com/file/d/${drive[1]}/preview`

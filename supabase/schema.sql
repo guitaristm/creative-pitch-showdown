@@ -133,6 +133,14 @@ create policy "anon read award_overrides" on award_overrides for select using (t
 create policy "anon read final_consensus" on final_consensus for select using (true);
 
 create policy "anon write participants" on participants for update using (true) with check (true);
+
+-- Storage bucket for participant output videos (played natively on the audience screen —
+-- Google blocks Drive video streaming inside third-party embeds, so we host the files ourselves).
+insert into storage.buckets (id, name, public) values ('videos', 'videos', true)
+on conflict (id) do nothing;
+create policy "anon read videos" on storage.objects for select using (bucket_id = 'videos');
+create policy "anon upload videos" on storage.objects for insert with check (bucket_id = 'videos');
+create policy "anon replace videos" on storage.objects for update using (bucket_id = 'videos') with check (bucket_id = 'videos');
 create policy "anon write scores" on scores for all using (true) with check (true);
 create policy "anon write display_state" on display_state for all using (true) with check (true);
 create policy "anon write award_overrides" on award_overrides for all using (true) with check (true);

@@ -83,5 +83,10 @@ assert.strictEqual(
 assert.strictEqual(toVideoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'https://www.youtube.com/embed/dQw4w9WgXcQ')
 assert.strictEqual(toVideoEmbedUrl('https://youtu.be/dQw4w9WgXcQ'), 'https://www.youtube.com/embed/dQw4w9WgXcQ')
 assert.strictEqual(toVideoEmbedUrl('https://example.com/pitch.mp4'), 'https://example.com/pitch.mp4')
+const { isDirectVideo } = await import('./embed.ts')
+assert.strictEqual(isDirectVideo('https://example.com/pitch.mp4'), true)
+assert.strictEqual(isDirectVideo('https://xyz.supabase.co/storage/v1/object/public/videos/P01-1.mp4'), true)
+assert.strictEqual(isDirectVideo('https://drive.google.com/file/d/1VU-yH8Mk/view'), false)
+assert.strictEqual(isDirectVideo('https://www.youtube.com/watch?v=abc123def45'), false)
 
 console.log('scoring.test.ts: all assertions passed')

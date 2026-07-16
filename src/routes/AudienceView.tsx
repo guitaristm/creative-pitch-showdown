@@ -1,6 +1,6 @@
 // AUDIENCE VIEW — shown on projector. Never imports rankings, scores, or operator controls.
 import { useEffect, useState } from 'react'
-import { toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
+import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, EVENT, type DisplayState, type Participant } from '../lib/types.ts'
 
@@ -90,7 +90,11 @@ export default function AudienceView() {
             <span className="pitch-timer">{mmss}</span>
           </div>
           {state.show_video && current.video_url ? (
-            <iframe key="video" className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
+            isDirectVideo(current.video_url) ? (
+              <video key="video" className="slide-frame" src={current.video_url} controls playsInline />
+            ) : (
+              <iframe key="video" className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
+            )
           ) : (
             <iframe key="slides" className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} slides`} />
           )}

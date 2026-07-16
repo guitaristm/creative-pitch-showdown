@@ -62,6 +62,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pitch-meta { color: var(--muted); font-weight: 400; font-size: 1.3rem; }
 .pitch-timer { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--green); }
 .slide-frame { flex: 1; width: 100%; border: 0; background: #000; }
+video.slide-frame { object-fit: contain; min-height: 0; }
 
 .fade-in { animation: fadeIn 0.8s ease both; }
 .reveal { animation: reveal 1.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }

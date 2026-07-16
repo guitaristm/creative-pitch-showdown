@@ -36,6 +36,7 @@ export default function OperatorView() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [slideDraft, setSlideDraft] = useState('')
   const [videoDraft, setVideoDraft] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
   const { toast, notify } = useToast()
@@ -210,6 +211,27 @@ export default function OperatorView() {
     }
   }
 
+  async function uploadVideo(file: File) {
+    if (!supabase || !currentId) return
+    setUploading(true)
+    const code = participants.find((p) => p.id === currentId)?.participant_code ?? currentId
+    const path = `${code}-${Date.now()}.${file.name.split('.').pop() || 'mp4'}`
+    const { error } = await supabase.storage.from('videos').upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' })
+    setUploading(false)
+    if (error) {
+      notify({
+        kind: 'error',
+        text: /bucket|not found/i.test(error.message)
+          ? 'Storage bucket missing — run the storage SQL block from supabase/schema.sql (bucket "videos").'
+          : `Upload failed: ${error.message}`,
+      })
+      return
+    }
+    const { data } = supabase.storage.from('videos').getPublicUrl(path)
+    setVideoDraft(data.publicUrl)
+    await saveParticipantLink('video_url', data.publicUrl)
+  }
+
   async function fillTestScores() {
     if (!supabase) return
     if (!window.confirm('Fill ALL participants with random test scores? Existing scores will be overwritten.')) return
@@ -305,9 +327,13 @@ export default function OperatorView() {
                   <a href={participants.find((p) => p.id === currentId)!.slide_url!} target="_blank" rel="noreferrer">open ↗</a>
                 )}
               </div>
-              <label>Output video link for {nameOf(currentId)} (Drive video / YouTube / mp4)</label>
+              <label>Output video for {nameOf(currentId)} (upload preferred — plays natively, no Google restrictions)</label>
               <div className="row slide-row">
-                <input type="url" placeholder="Drive video share link — plays via Drive's player, not through the deck" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
+                <input type="file" accept="video/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} />
+                {uploading && <span className="muted">Uploading…</span>}
+              </div>
+              <div className="row slide-row">
+                <input type="url" placeholder="…or paste a link (YouTube / direct .mp4 / Drive)" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
                 <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save link</button>
               </div>
               {participants.find((p) => p.id === currentId)?.video_url && (
