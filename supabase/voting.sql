@@ -13,7 +13,8 @@
 --     hashes alone are useless because submit_vote hashes a raw pre-image.
 -- ============================================================================
 
-create extension if not exists pgcrypto;
+-- pgcrypto provides digest(); on Supabase it lives in the `extensions` schema
+create extension if not exists pgcrypto with schema extensions;
 
 -- reuse existing participants; just add the active flag the voting admin toggles
 alter table participants add column if not exists is_active boolean default true;
@@ -23,7 +24,8 @@ create or replace function norm_token(raw text) returns text
   language sql immutable as $$ select upper(regexp_replace(coalesce(raw,''), '\s', '', 'g')) $$;
 
 create or replace function hash_token(raw text) returns text
-  language sql immutable as $$ select encode(digest(norm_token(raw), 'sha256'), 'hex') $$;
+  language sql immutable set search_path = public, extensions
+  as $$ select encode(digest(norm_token(raw), 'sha256'), 'hex') $$;
 
 -- --- tables
 create table if not exists voting_tokens (
