@@ -89,4 +89,11 @@ assert.strictEqual(isDirectVideo('https://xyz.supabase.co/storage/v1/object/publ
 assert.strictEqual(isDirectVideo('https://drive.google.com/file/d/1VU-yH8Mk/view'), false)
 assert.strictEqual(isDirectVideo('https://www.youtube.com/watch?v=abc123def45'), false)
 
+// Token hashing must match SQL hash_token(): SHA-256 hex of normalized (whitespace-stripped, uppercased) token
+const { createHash } = await import('node:crypto')
+const { hashToken, normalizeToken } = await import('./token.ts')
+assert.strictEqual(normalizeToken('  emp-7kq2 mn9a '), 'EMP-7KQ2MN9A')
+assert.strictEqual(await hashToken('token 001'), createHash('sha256').update('TOKEN001').digest('hex'))
+assert.strictEqual(await hashToken('TOKEN001'), await hashToken(' token001 '))
+
 console.log('scoring.test.ts: all assertions passed')

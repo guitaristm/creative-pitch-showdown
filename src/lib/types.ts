@@ -12,6 +12,7 @@ export interface Participant {
   status: string
   slide_url?: string | null
   video_url?: string | null
+  is_active?: boolean
 }
 
 export interface Judge {
@@ -66,4 +67,50 @@ export const EVENT = {
   subtitle: 'Creative Output Pitching Challenge',
   date: '13 Aug 2026',
   process: 'Define → Plan → Execute → Review',
+}
+
+// ---- Employee anonymous voting ----
+export type VotingMode = 'like' | 'rating'
+
+export interface VotingState {
+  id: number
+  voting_open: boolean
+  current_participant_id: string | null
+  voting_mode: VotingMode
+  show_dashboard: boolean
+  updated_at: string
+}
+
+export interface VotingToken {
+  id: string
+  token_hash: string
+  token_label: string | null
+  is_active: boolean
+}
+
+export interface ParticipantVoteSummary {
+  participant_id: string
+  participant_name: string
+  level: Level
+  vote_count: number
+  total_vote_value: number
+  average_rating: number
+  rating_1_count: number
+  rating_2_count: number
+  rating_3_count: number
+  rating_4_count: number
+  rating_5_count: number
+}
+
+export const RATING_LABELS: Record<number, string> = {
+  1: 'Needs more development',
+  2: 'Fair',
+  3: 'Good',
+  4: 'Very good',
+  5: 'Excellent',
+}
+
+export const VOTING = {
+  title: 'The Creative Pitch Showdown',
+  subtitle: 'Employee Anonymous Voting',
 }

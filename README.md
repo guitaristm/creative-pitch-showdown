@@ -5,9 +5,10 @@ Judges score on paper → staff enter scores in the **Operator View** → the sy
 Thai average, final score, ranking and awards → the **Audience View** (projector) shows only what the
 operator chooses to reveal.
 
-- `/operator` — private staff console: score input, ranking, awards, display control.
+- `/operator` — private staff console: score input, ranking, awards, display control, participant order/names.
 - `/audience` — projector screen: opening, now-pitching, scoring-in-progress, winner reveal. **Never shows ranking or partial scores.**
-- `/` redirects to `/audience`.
+- `/vote` — employee anonymous voting (mobile). `/dashboard` — aggregated voting results. `/admin` — voting control.
+- `/` redirects to `/audience` (employees get the `/vote` link directly).
 
 Stack: React + Vite + TypeScript, Supabase (DB + realtime), Vercel (hosting), no custom backend.
 
@@ -134,3 +135,63 @@ never silently resolved.
 
 **Awards**: Senior 1 & 2 = top 2 Seniors, Junior 1 & 2 = top 2 Juniors, Grand Prix = top overall.
 All manually overridable.
+
+---
+
+# Employee Anonymous Voting
+
+A **separate layer** from the official judge scoring above. Judges score on paper and staff enter
+those privately; this layer lets **all employees** vote for each pitch from their phones. The two
+never mix — voting results never touch the awards.
+
+## How anonymous token voting works
+
+True anonymity and duplicate prevention conflict: to stop someone voting twice you need to know who
+they are, but that breaks anonymity. The resolution is **anonymous tokens**. HR hands each employee
+one private code (e.g. `EMP-7KQ2-MN9A`). The database stores **only the SHA-256 hash** of the code —
+never the code, never a name. A unique constraint on `(participant_id, token_hash)` means one code can
+vote **once per participant** but for **every** participant. Counts are possible; identities are not.
+
+**Integrity (this build):** votes are inserted only by a Postgres `submit_vote()` function that takes
+the raw code, hashes it server-side, checks it is a real active token and that voting is open, then
+inserts. The browser cannot insert votes directly (RLS denies it) and never sees the token list. This
+closes the ballot-stuffing hole that a purely client-side flow would leave open via the public anon key.
+> **TODO for external/public use:** move `submit_vote` behind a rate-limited Supabase Edge Function
+> and never expose token hashes. For this internal event the DB-enforced RPC is sufficient.
+
+## Setup
+
+1. Run [`supabase/voting.sql`](supabase/voting.sql) once in the Supabase SQL Editor (idempotent; adds
+   voting tables, views, RPCs, RLS, realtime, and 5 dev tokens). Reuses the existing `participants`.
+2. Set `VITE_ADMIN_PASSCODE` in `.env` (local) and Vercel env vars (Production + Preview), then redeploy.
+3. Generate real tokens: `node scripts/generateTokens.ts 60` → writes `tokens-output/distribute.csv`
+   (give each employee ONE row — keep the rest private) and `insert.sql` (paste into Supabase SQL Editor).
+   **Never commit `tokens-output/`** (gitignored). Use non-identifying labels (`EMP-001`), not names.
+
+Dev tokens for testing: `TOKEN001`–`TOKEN005`.
+
+## Using it
+
+- **`/admin`** (passcode) — open/close voting, pick the current participant, choose mode
+  (Rating 1–5 or Simple like), add/deactivate tokens, watch live counts, edit topics / active flags.
+- **`/vote`** (employees, mobile) — enter code → rate the current participant 1–5 (or one-tap like) →
+  "Vote submitted". Voting a second time for the same person shows "already voted". Updates live when
+  the admin changes the current participant. Shows "closed" / "waiting" states.
+- **`/dashboard`** — ranking (by average, then vote count, then name), vote-count bars, and a 1–5
+  distribution bar per participant, with an All/Senior/Junior filter. Passcode-gated unless the admin
+  ticks "Make /dashboard public". **Never shows tokens, hashes, or identities** — only aggregates.
+
+Rating labels: 1 Needs more development · 2 Fair · 3 Good · 4 Very good · 5 Excellent.
+
+## Voting security limitations
+
+- The admin passcode is checked in the browser (it ships in the bundle) — it keeps casual viewers out,
+  not determined ones. For real protection, add Vercel Deployment Protection or Supabase Auth.
+- The anon key can read token **labels/hashes** and toggle voting state; hashes are useless for voting
+  (you need the raw code, and only `submit_vote` writes votes), but don't put employee names in labels.
+- Individual votes are never readable by the anon key (RLS) — only the aggregate views are.
+
+## Participant order & names (scoring app)
+
+In `/operator` → "Participants — order & names": edit pitch order or a name and click away to save; untick
+"Active" to skip someone who isn't ready (hidden from voters). Handy for last-minute lineup changes.

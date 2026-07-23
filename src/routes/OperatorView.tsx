@@ -276,6 +276,16 @@ export default function OperatorView() {
     else loadAll()
   }
 
+  async function saveParticipantMeta(id: string, patch: Partial<Participant>) {
+    if (!supabase) return
+    const { error } = await supabase.from('participants').update(patch).eq('id', id)
+    if (error) notify({ kind: 'error', text: `Update failed: ${error.message}` })
+    else {
+      notify({ kind: 'success', text: 'Participant updated.' })
+      loadAll()
+    }
+  }
+
   if (!supabase) {
     return (
       <div className="operator">
@@ -519,6 +529,31 @@ export default function OperatorView() {
             <button className="danger" onClick={resetAllScores}>🗑 Reset all scores</button>
           </div>
           <p className="muted">Use before the event to rehearse the full flow, then reset. Both ask for confirmation.</p>
+        </section>
+
+        {/* 7. Participant order / names — for last-minute changes if someone isn't ready */}
+        <section className="panel wide">
+          <h2>Participants — order & names</h2>
+          <table>
+            <thead><tr><th>Order</th><th>Name</th><th>Level</th><th>Active</th></tr></thead>
+            <tbody>
+              {participants.map((p) => (
+                <tr key={p.id} className={p.is_active === false ? 'missing' : ''}>
+                  <td>
+                    <input type="number" className="order-input" defaultValue={p.pitch_order}
+                      onBlur={(e) => Number(e.target.value) !== p.pitch_order && saveParticipantMeta(p.id, { pitch_order: Number(e.target.value) })} />
+                  </td>
+                  <td>
+                    <input type="text" defaultValue={p.name}
+                      onBlur={(e) => e.target.value.trim() && e.target.value !== p.name && saveParticipantMeta(p.id, { name: e.target.value.trim() })} />
+                  </td>
+                  <td>{p.level}</td>
+                  <td><input type="checkbox" checked={p.is_active !== false} onChange={(e) => saveParticipantMeta(p.id, { is_active: e.target.checked })} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted">Edit order or name and click away to save. Uncheck “Active” to skip someone who isn’t ready (hidden from voters).</p>
         </section>
       </div>
     </div>
