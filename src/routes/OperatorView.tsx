@@ -199,6 +199,12 @@ export default function OperatorView() {
 
   async function saveParticipantLink(field: 'slide_url' | 'video_url', value: string) {
     if (!supabase || !currentId) return
+    // Google blocks Drive video streaming inside third-party embeds — a Drive link in the
+    // video field can never play on the audience screen, so refuse it instead of breaking quietly.
+    if (field === 'video_url' && /drive\.google\.com/.test(value)) {
+      notify({ kind: 'error', text: 'Drive links can’t play on the audience screen (Google blocks embedded streaming). Upload the video file instead — or paste a YouTube / direct .mp4 link.' })
+      return
+    }
     // .select() so an RLS-blocked update (0 rows, no error) is detected instead of silently "succeeding"
     const { data, error } = await supabase.from('participants').update({ [field]: value.trim() || null }).eq('id', currentId).select()
     if (error)
