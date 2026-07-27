@@ -111,8 +111,10 @@ function AdminInner() {
           <label>Voting mode</label>
           <div className="mode-buttons">
             <button className={state?.voting_mode === 'rating' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'rating' })}>Rating 1–5</button>
+            <button className={state?.voting_mode === 'criteria' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'criteria' })}>Judge-style /20</button>
             <button className={state?.voting_mode === 'like' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'like' })}>Simple like</button>
           </div>
+          <p className="muted">Don’t switch modes mid-event — mixed vote scales make averages meaningless. Wipe votes first if you must switch.</p>
           <label className="check">
             <input type="checkbox" checked={state?.show_dashboard ?? false} onChange={(e) => patchState({ show_dashboard: e.target.checked })} />
             Make /dashboard public (no passcode)

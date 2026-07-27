@@ -70,7 +70,7 @@ export const EVENT = {
 }
 
 // ---- Employee anonymous voting ----
-export type VotingMode = 'like' | 'rating'
+export type VotingMode = 'like' | 'rating' | 'criteria'
 
 export interface VotingState {
   id: number
@@ -100,6 +100,10 @@ export interface ParticipantVoteSummary {
   rating_3_count: number
   rating_4_count: number
   rating_5_count: number
+  avg_concept: number | null
+  avg_visual: number | null
+  avg_technical: number | null
+  avg_business: number | null
 }
 
 export const RATING_LABELS: Record<number, string> = {

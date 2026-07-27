@@ -49,10 +49,25 @@ create table if not exists voting_state (
   id int primary key default 1 check (id = 1),
   voting_open boolean default false,
   current_participant_id uuid references participants(id),
-  voting_mode text not null default 'rating' check (voting_mode in ('like', 'rating')),
+  voting_mode text not null default 'rating',
   show_dashboard boolean default false,
   updated_at timestamptz default now()
 );
+
+-- voting modes: like (1 tap), rating (1–5 stars), criteria (judge-style /20)
+alter table voting_state drop constraint if exists voting_state_voting_mode_check;
+alter table voting_state add constraint voting_state_voting_mode_check
+  check (voting_mode in ('like', 'rating', 'criteria'));
+
+-- criteria mode stores the judge-style breakdown; vote_value holds the /20 total there
+alter table employee_votes
+  add column if not exists concept_score int,
+  add column if not exists visual_score int,
+  add column if not exists technical_score int,
+  add column if not exists business_score int;
+alter table employee_votes drop constraint if exists employee_votes_vote_value_check;
+alter table employee_votes add constraint employee_votes_vote_value_check
+  check (vote_value between 1 and 20);
 
 insert into voting_state (id) values (1) on conflict (id) do nothing;
 
@@ -66,7 +81,11 @@ create or replace view participant_vote_summary as
     count(*) filter (where v.vote_value = 2) as rating_2_count,
     count(*) filter (where v.vote_value = 3) as rating_3_count,
     count(*) filter (where v.vote_value = 4) as rating_4_count,
-    count(*) filter (where v.vote_value = 5) as rating_5_count
+    count(*) filter (where v.vote_value = 5) as rating_5_count,
+    round(avg(v.concept_score), 2) as avg_concept,
+    round(avg(v.visual_score), 2) as avg_visual,
+    round(avg(v.technical_score), 2) as avg_technical,
+    round(avg(v.business_score), 2) as avg_business
   from participants p
   left join employee_votes v on v.participant_id = p.id
   group by p.id, p.name, p.level;
@@ -98,6 +117,28 @@ create or replace function submit_vote(p_participant uuid, p_token text, p_value
     if not exists (select 1 from voting_tokens where token_hash = v_hash and is_active) then return 'invalid'; end if;
     begin
       insert into employee_votes (participant_id, token_hash, vote_value) values (p_participant, v_hash, p_value);
+    exception when unique_violation then return 'duplicate';
+    end;
+    return 'ok';
+  end $$;
+
+-- judge-style criteria vote: four scores → /20 total, same token/duplicate/closed rules
+create or replace function submit_criteria_vote(
+  p_participant uuid, p_token text, p_concept int, p_visual int, p_technical int, p_business int
+) returns text
+  language plpgsql security definer set search_path = public as $$
+  declare v_hash text := hash_token(p_token);
+          v_total int := coalesce(p_concept,0) + coalesce(p_visual,0) + coalesce(p_technical,0) + coalesce(p_business,0);
+  begin
+    if not exists (select 1 from voting_state where id = 1 and voting_open) then return 'closed'; end if;
+    if p_participant is null then return 'no_participant'; end if;
+    if p_concept not between 0 and 3 or p_visual not between 0 and 10
+       or p_technical not between 0 and 4 or p_business not between 0 and 3
+       or v_total < 1 then return 'bad_value'; end if;
+    if not exists (select 1 from voting_tokens where token_hash = v_hash and is_active) then return 'invalid'; end if;
+    begin
+      insert into employee_votes (participant_id, token_hash, vote_value, concept_score, visual_score, technical_score, business_score)
+      values (p_participant, v_hash, v_total, p_concept, p_visual, p_technical, p_business);
     exception when unique_violation then return 'duplicate';
     end;
     return 'ok';

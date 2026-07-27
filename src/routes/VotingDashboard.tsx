@@ -85,7 +85,7 @@ function DashboardInner() {
         <section className="panel">
           <h2>Ranking</h2>
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Level</th><th>Avg</th><th>Votes</th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Level</th><th>Avg {state?.voting_mode === 'criteria' ? '/20' : '/5'}</th><th>Votes</th></tr></thead>
             <tbody>
               {ranked.map((r, i) => (
                 <tr key={r.participant_id}>
@@ -111,6 +111,28 @@ function DashboardInner() {
           ))}
         </section>
 
+        {state?.voting_mode === 'criteria' ? (
+          <section className="panel wide">
+            <h2>Criteria averages (judge-style /20)</h2>
+            {ranked.map((r) => (
+              <div key={r.participant_id} className="dist-row">
+                <span className="bar-label">{r.participant_name}</span>
+                {r.vote_count > 0 ? (
+                  <span className="crit-chips">
+                    <span className="chip">Concept {Number(r.avg_concept ?? 0).toFixed(1)}/3</span>
+                    <span className="chip">Visual {Number(r.avg_visual ?? 0).toFixed(1)}/10</span>
+                    <span className="chip">Technical {Number(r.avg_technical ?? 0).toFixed(1)}/4</span>
+                    <span className="chip">Business {Number(r.avg_business ?? 0).toFixed(1)}/3</span>
+                    <span className="chip total">Σ {Number(r.average_rating).toFixed(1)}/20</span>
+                  </span>
+                ) : (
+                  <span className="muted">no votes</span>
+                )}
+              </div>
+            ))}
+            <p className="muted">Same criteria as the official judges, scored by the floor. Kept fully separate from the judge awards.</p>
+          </section>
+        ) : (
         <section className="panel wide">
           <h2>Rating distribution (1–5)</h2>
           {ranked.map((r) => {
@@ -131,6 +153,7 @@ function DashboardInner() {
           })}
           <p className="muted">Colours: red 1★ → green 5★. Individual votes and voter identities are never shown.</p>
         </section>
+        )}
       </div>
     </div>
   )
