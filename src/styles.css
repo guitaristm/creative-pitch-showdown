@@ -20,6 +20,16 @@ body {
 
 button, input, select, textarea { font: inherit; color: inherit; }
 
+/* dark default for any input not styled by a component class — text inherits white,
+   so a browser-default white background made those fields unreadable */
+input[type='text'], input[type='number'], input[type='url'], input[type='password'], input[type='search'], textarea {
+  background: #141827;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+}
+input::placeholder { color: var(--muted); }
+
 /* ---------- Audience (projector, 16:9, dramatic) ---------- */
 .audience {
   height: 100vh;
