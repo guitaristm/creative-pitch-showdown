@@ -38,6 +38,7 @@ export default function OperatorView() {
   const [slideDraft, setSlideDraft] = useState('')
   const [videoDraft, setVideoDraft] = useState('')
   const [linkTargetId, setLinkTargetId] = useState('')
+  const [sharedDraft, setSharedDraft] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
@@ -179,12 +180,12 @@ export default function OperatorView() {
     if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
     let { error } = await supabase.from('display_state').update(changes).eq('id', 1)
     // a column not migrated yet — save the rest, and hint only if that toggle was the whole point
-    for (const col of ['show_video', 'chime_enabled'] as const) {
+    for (const col of ['show_video', 'chime_enabled', 'shared_slide_url'] as const) {
       if (!error?.message.includes(col)) continue
       delete changes[col]
       if (Object.keys(changes).length) ({ error } = await supabase.from('display_state').update(changes).eq('id', 1))
       if (col in patch && Object.keys(patch).length === 1) {
-        const type = col === 'show_video' ? 'boolean default false' : 'boolean default true'
+        const type = col === 'shared_slide_url' ? 'text' : col === 'show_video' ? 'boolean default false' : 'boolean default true'
         notify({ kind: 'error', text: `Missing column — run in Supabase SQL editor: alter table display_state add column ${col} ${type};` })
         return
       }
@@ -428,6 +429,16 @@ export default function OperatorView() {
             </>
           ) : (
             <p className="muted">Pick anyone to add their deck or video — no need to put them on screen first.</p>
+          )}
+
+          <h2 style={{ marginTop: '1.2rem' }}>Shared Slide {display?.shared_slide_url && <span className="badge">on screen now</span>}</h2>
+          <p className="muted">Any deck shown full-screen to the room — work samples for review, a briefing, house rules. Not tied to a participant; overrides the normal screen until you stop it.</p>
+          <div className="row slide-row">
+            <input type="url" placeholder="Google Slides / Canva link (published works best)" value={sharedDraft} onChange={(e) => setSharedDraft(e.target.value)} />
+            <button className="primary" onClick={() => saveDisplay({ shared_slide_url: sharedDraft.trim() || null })}>Show on audience</button>
+          </div>
+          {display?.shared_slide_url && (
+            <button className="ghost" onClick={() => saveDisplay({ shared_slide_url: null })}>■ Stop sharing (back to normal screen)</button>
           )}
         </section>
 

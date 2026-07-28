@@ -90,6 +90,15 @@ export default function AudienceView() {
   if (!supabase) return <div className="audience center"><p className="aud-note">Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p></div>
   if (!state) return <div className="audience center"><p className="aud-note">Connecting…</p></div>
 
+  // A shared deck takes over the whole screen (work-sample review, briefing) — no name, no timer.
+  if (state.shared_slide_url) {
+    return (
+      <div className="audience">
+        <iframe className="shared-frame" src={toEmbedUrl(state.shared_slide_url)} allow="fullscreen" allowFullScreen title="Shared slides" />
+      </div>
+    )
+  }
+
   const byId = (id: string | null | undefined) => participants.find((p) => p.id === id)
   const current = byId(state.current_participant_id)
   const winner = byId(state.reveal_participant_id)
