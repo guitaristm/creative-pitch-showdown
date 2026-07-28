@@ -110,7 +110,8 @@ export default function AudienceView() {
             <span className="pitch-name">{current ? current.name : EVENT.name}</span>
             <span className={warning ? 'pitch-timer warn' : 'pitch-timer'}>{mmss}</span>
           </div>
-          <iframe className="slide-frame" src={toEmbedUrl(state.shared_slide_url)} allow="fullscreen" allowFullScreen title="Shared slides" />
+          {/* no allowFullScreen: a fullscreened deck would cover the timer bar (nothing outside it renders) */}
+          <iframe className="slide-frame" src={toEmbedUrl(state.shared_slide_url)} title="Shared slides" />
         </div>
       </div>
     )
@@ -140,7 +141,8 @@ export default function AudienceView() {
               <iframe key="video" className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
             )
           ) : (
-            <iframe key="slides" className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} slides`} />
+            /* no allowFullScreen — see shared-slide note above */
+            <iframe key="slides" className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay" title={`${current.name} slides`} />
           )}
         </div>
       )}
