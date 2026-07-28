@@ -45,6 +45,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .aud-topic { font-size: 1.8rem; font-style: italic; max-width: 60vw; }
 .aud-timer { font-size: 7rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--green); }
 .aud-note { font-size: 1.2rem; color: var(--muted); }
+.aud-note.dim { font-size: 0.95rem; opacity: 0.55; }
+.aud-timer.warn, .pitch-timer.warn { color: var(--gold); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
 .aud-score { font-size: 3.5rem; font-weight: 700; color: var(--green); }
 .aud-cards { display: flex; gap: 1.5rem; margin-top: 2rem; }
 .aud-card {

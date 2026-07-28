@@ -1,8 +1,12 @@
 // AUDIENCE VIEW — shown on projector. Never imports rankings, scores, or operator controls.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { playChime, unlockAudio } from '../lib/chime.ts'
 import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, EVENT, type DisplayState, type Participant } from '../lib/types.ts'
+
+/** Seconds remaining when the "wrap up" chime sounds (1:30). */
+const WARN_AT = 90
 
 /** Only what the audience is allowed to see for the winner: final score, fetched on demand. */
 async function fetchWinnerScore(participantId: string): Promise<number | null> {
@@ -24,6 +28,8 @@ export default function AudienceView() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [winnerScore, setWinnerScore] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [audioReady, setAudioReady] = useState(false)
+  const chimedFor = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) return
@@ -52,12 +58,34 @@ export default function AudienceView() {
     return () => clearInterval(t)
   }, [])
 
+  // browsers block sound until the page is interacted with — arm it on the first click/key
+  useEffect(() => {
+    const arm = () => setAudioReady(unlockAudio())
+    window.addEventListener('click', arm)
+    window.addEventListener('keydown', arm)
+    return () => {
+      window.removeEventListener('click', arm)
+      window.removeEventListener('keydown', arm)
+    }
+  }, [])
+
   useEffect(() => {
     setWinnerScore(null)
     if (state?.screen_mode === 'winner_reveal' && state.show_winner_score && state.reveal_participant_id) {
       fetchWinnerScore(state.reveal_participant_id).then(setWinnerScore)
     }
   }, [state?.screen_mode, state?.show_winner_score, state?.reveal_participant_id])
+
+  // "wrap up" chime at 1:30 left — once per timer run (updated_at changes on every start/reset)
+  useEffect(() => {
+    if (!state?.timer_running) return
+    const left = state.timer_seconds - Math.floor((now - new Date(state.updated_at).getTime()) / 1000)
+    const runId = `${state.current_participant_id}-${state.updated_at}`
+    if (left <= WARN_AT && left > WARN_AT - 5 && chimedFor.current !== runId) {
+      chimedFor.current = runId
+      playChime()
+    }
+  }, [now, state?.timer_running, state?.timer_seconds, state?.updated_at, state?.current_participant_id])
 
   if (!supabase) return <div className="audience center"><p className="aud-note">Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p></div>
   if (!state) return <div className="audience center"><p className="aud-note">Connecting…</p></div>
@@ -71,6 +99,7 @@ export default function AudienceView() {
   const elapsed = state.timer_running ? Math.floor((now - new Date(state.updated_at).getTime()) / 1000) : 0
   const remaining = Math.max(0, state.timer_seconds - elapsed)
   const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
+  const warning = state.timer_running && remaining <= WARN_AT && remaining > 0
 
   return (
     <div className="audience">
@@ -87,7 +116,7 @@ export default function AudienceView() {
         <div className="pitch-stage fade-in">
           <div className="pitch-bar">
             <span className="pitch-name">{current.name}<span className="pitch-meta"> · {current.level} · Pitch #{current.pitch_order}</span></span>
-            <span className="pitch-timer">{mmss}</span>
+            <span className={warning ? 'pitch-timer warn' : 'pitch-timer'}>{mmss}</span>
           </div>
           {state.show_video && current.video_url ? (
             isDirectVideo(current.video_url) ? (
@@ -109,8 +138,9 @@ export default function AudienceView() {
             {current ? `${current.level} · Pitch #${current.pitch_order}` : ''}
           </p>
           {current?.topic && <p className="aud-topic">“{current.topic}”</p>}
-          <div className="aud-timer">{mmss}</div>
+          <div className={warning ? 'aud-timer warn' : 'aud-timer'}>{mmss}</div>
           <p className="aud-note">Output video max 1 min</p>
+          {!audioReady && <p className="aud-note dim">🔇 Click anywhere to enable the 1:30 reminder sound</p>}
         </div>
       )}
 

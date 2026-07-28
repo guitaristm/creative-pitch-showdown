@@ -1,6 +1,7 @@
 // OPERATOR VIEW — private. Never show this route on the projector.
 import { useEffect, useMemo, useState } from 'react'
 import { Toast, useToast } from '../components/Toast.tsx'
+import { playChime, unlockAudio } from '../lib/chime.ts'
 import { CRITERIA, calculateParticipantScore, calculateRankings, calculateSuggestedAwards, validateScore } from '../lib/scoring.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, type DisplayState, type Judge, type Participant, type Score, type ScreenMode } from '../lib/types.ts'
@@ -395,6 +396,8 @@ export default function OperatorView() {
             )}
             <button className="ghost" onClick={() => saveDisplay({ timer_running: false, timer_seconds: 300 })}>Reset</button>
           </div>
+          <p className="muted">A chime sounds on the audience screen at 1:30 left (that machine needs one click to enable sound).</p>
+          <button className="ghost" onClick={() => { unlockAudio(); playChime() }}>🔔 Test chime (this device)</button>
         </section>
 
         {/* 2 + 3. Score Input + Summary */}
