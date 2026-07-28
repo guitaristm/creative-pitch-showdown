@@ -78,14 +78,14 @@ export default function AudienceView() {
 
   // "wrap up" chime at 1:30 left — once per timer run (updated_at changes on every start/reset)
   useEffect(() => {
-    if (!state?.timer_running) return
+    if (!state?.timer_running || state.chime_enabled === false) return
     const left = state.timer_seconds - Math.floor((now - new Date(state.updated_at).getTime()) / 1000)
     const runId = `${state.current_participant_id}-${state.updated_at}`
     if (left <= WARN_AT && left > WARN_AT - 5 && chimedFor.current !== runId) {
       chimedFor.current = runId
       playChime()
     }
-  }, [now, state?.timer_running, state?.timer_seconds, state?.updated_at, state?.current_participant_id])
+  }, [now, state?.timer_running, state?.timer_seconds, state?.updated_at, state?.current_participant_id, state?.chime_enabled])
 
   if (!supabase) return <div className="audience center"><p className="aud-note">Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p></div>
   if (!state) return <div className="audience center"><p className="aud-note">Connecting…</p></div>
@@ -140,7 +140,9 @@ export default function AudienceView() {
           {current?.topic && <p className="aud-topic">“{current.topic}”</p>}
           <div className={warning ? 'aud-timer warn' : 'aud-timer'}>{mmss}</div>
           <p className="aud-note">Output video max 1 min</p>
-          {!audioReady && <p className="aud-note dim">🔇 Click anywhere to enable the 1:30 reminder sound</p>}
+          {!audioReady && state.chime_enabled !== false && (
+            <p className="aud-note dim">🔇 Click anywhere to enable the 1:30 reminder sound</p>
+          )}
         </div>
       )}
 

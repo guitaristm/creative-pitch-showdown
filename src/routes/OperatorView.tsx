@@ -37,6 +37,7 @@ export default function OperatorView() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [slideDraft, setSlideDraft] = useState('')
   const [videoDraft, setVideoDraft] = useState('')
+  const [linkTargetId, setLinkTargetId] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
@@ -102,11 +103,18 @@ export default function OperatorView() {
   }, [selectedId, scores, judges])
 
   const currentId = display?.current_participant_id ?? null
+  const linkTarget = participants.find((p) => p.id === linkTargetId)
+
+  // default the link editor to whoever is on screen, but let the operator change it freely
   useEffect(() => {
-    const p = participants.find((x) => x.id === currentId)
+    if (currentId && !linkTargetId) setLinkTargetId(currentId)
+  }, [currentId])
+
+  useEffect(() => {
+    const p = participants.find((x) => x.id === linkTargetId)
     setSlideDraft(p?.slide_url ?? '')
     setVideoDraft(p?.video_url ?? '')
-  }, [currentId, participants])
+  }, [linkTargetId, participants])
 
   const selected = participants.find((p) => p.id === selectedId)
   const rankings = useMemo(() => calculateRankings(participants, scores, judges, consensus), [participants, scores, judges, consensus])
@@ -170,12 +178,14 @@ export default function OperatorView() {
     const changes: Partial<DisplayState> = { ...patch }
     if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
     let { error } = await supabase.from('display_state').update(changes).eq('id', 1)
-    if (error?.message.includes('show_video')) {
-      // column not migrated yet — save the rest, surface the migration hint only if the toggle itself was used
-      delete changes.show_video
+    // a column not migrated yet — save the rest, and hint only if that toggle was the whole point
+    for (const col of ['show_video', 'chime_enabled'] as const) {
+      if (!error?.message.includes(col)) continue
+      delete changes[col]
       if (Object.keys(changes).length) ({ error } = await supabase.from('display_state').update(changes).eq('id', 1))
-      if ('show_video' in patch && Object.keys(patch).length === 1) {
-        notify({ kind: 'error', text: 'Missing column — run in Supabase SQL editor: alter table display_state add column show_video boolean default false;' })
+      if (col in patch && Object.keys(patch).length === 1) {
+        const type = col === 'show_video' ? 'boolean default false' : 'boolean default true'
+        notify({ kind: 'error', text: `Missing column — run in Supabase SQL editor: alter table display_state add column ${col} ${type};` })
         return
       }
     }
@@ -199,7 +209,7 @@ export default function OperatorView() {
   }
 
   async function saveParticipantLink(field: 'slide_url' | 'video_url', value: string) {
-    if (!supabase || !currentId) return
+    if (!supabase || !linkTargetId) return
     // Google blocks Drive video streaming inside third-party embeds — a Drive link in the
     // video field can never play on the audience screen, so refuse it instead of breaking quietly.
     if (field === 'video_url' && /drive\.google\.com/.test(value)) {
@@ -207,7 +217,7 @@ export default function OperatorView() {
       return
     }
     // .select() so an RLS-blocked update (0 rows, no error) is detected instead of silently "succeeding"
-    const { data, error } = await supabase.from('participants').update({ [field]: value.trim() || null }).eq('id', currentId).select()
+    const { data, error } = await supabase.from('participants').update({ [field]: value.trim() || null }).eq('id', linkTargetId).select()
     if (error)
       notify({ kind: 'error', text: error.message.includes(field) ? `Missing column — run in Supabase SQL editor: alter table participants add column ${field} text;` : `Save failed: ${error.message}` })
     else if (!data?.length)
@@ -219,9 +229,9 @@ export default function OperatorView() {
   }
 
   async function uploadVideo(file: File) {
-    if (!supabase || !currentId) return
+    if (!supabase || !linkTargetId) return
     setUploading(true)
-    const code = participants.find((p) => p.id === currentId)?.participant_code ?? currentId
+    const code = participants.find((p) => p.id === linkTargetId)?.participant_code ?? linkTargetId
     const path = `${code}-${Date.now()}.${file.name.split('.').pop() || 'mp4'}`
     const { error } = await supabase.storage.from('videos').upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' })
     setUploading(false)
@@ -334,34 +344,13 @@ export default function OperatorView() {
               <option key={p.id} value={p.id}>#{p.pitch_order} {p.name} ({p.level})</option>
             ))}
           </select>
-          {currentId && (
-            <>
-              <label>Presentation link for {nameOf(currentId)} (shown on Now Pitching)</label>
-              <div className="row slide-row">
-                <input type="url" placeholder="Google Slides / Canva share link" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
-                <button onClick={() => saveParticipantLink('slide_url', slideDraft)}>Save link</button>
-                {participants.find((p) => p.id === currentId)?.slide_url && (
-                  <a href={participants.find((p) => p.id === currentId)!.slide_url!} target="_blank" rel="noreferrer">open ↗</a>
-                )}
-              </div>
-              <label>Output video for {nameOf(currentId)} (upload preferred — plays natively, no Google restrictions)</label>
-              <div className="row slide-row">
-                <input type="file" accept="video/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} />
-                {uploading && <span className="muted">Uploading…</span>}
-              </div>
-              <div className="row slide-row">
-                <input type="url" placeholder="…or paste a link (YouTube / direct .mp4 / Drive)" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
-                <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save link</button>
-              </div>
-              {participants.find((p) => p.id === currentId)?.video_url && (
-                <button
-                  className={display?.show_video ? 'active' : ''}
-                  onClick={() => saveDisplay({ show_video: !display?.show_video })}
-                >
-                  {display?.show_video ? '🖼 Back to slides' : '🎬 Show output video'}
-                </button>
-              )}
-            </>
+          {participants.find((p) => p.id === currentId)?.video_url && (
+            <button
+              className={display?.show_video ? 'active' : ''}
+              onClick={() => saveDisplay({ show_video: !display?.show_video })}
+            >
+              {display?.show_video ? '🖼 Back to slides' : '🎬 Show output video'}
+            </button>
           )}
           <label>Reveal award</label>
           <select value={display?.selected_award ?? ''} onChange={(e) => saveDisplay({ selected_award: e.target.value || null })}>
@@ -396,8 +385,50 @@ export default function OperatorView() {
             )}
             <button className="ghost" onClick={() => saveDisplay({ timer_running: false, timer_seconds: 300 })}>Reset</button>
           </div>
-          <p className="muted">A chime sounds on the audience screen at 1:30 left (that machine needs one click to enable sound).</p>
-          <button className="ghost" onClick={() => { unlockAudio(); playChime() }}>🔔 Test chime (this device)</button>
+          <div className="row">
+            <label className="check">
+              <input type="checkbox" checked={display?.chime_enabled !== false} onChange={(e) => saveDisplay({ chime_enabled: e.target.checked })} />
+              🔔 Chime at 1:30 left
+            </label>
+            <button className="ghost" onClick={() => { unlockAudio(); playChime() }}>Test chime (this device)</button>
+          </div>
+          <p className="muted">Chime plays on the audience machine (one click there enables its sound).</p>
+        </section>
+
+        {/* 1b. Slides & video — independent of the display, so decks can be loaded any time */}
+        <section className="panel">
+          <h2>Slides & Video Links</h2>
+          <label>Participant to edit {linkTargetId === currentId && currentId ? '(currently on screen)' : ''}</label>
+          <select value={linkTargetId} onChange={(e) => setLinkTargetId(e.target.value)}>
+            <option value="">— select participant —</option>
+            {participants.map((p) => (
+              <option key={p.id} value={p.id}>
+                #{p.pitch_order} {p.name}{p.slide_url ? ' 🖼' : ''}{p.video_url ? ' 🎬' : ''}
+              </option>
+            ))}
+          </select>
+          {linkTargetId ? (
+            <>
+              <label>Presentation link</label>
+              <div className="row slide-row">
+                <input type="url" placeholder="Google Slides / Canva share link" value={slideDraft} onChange={(e) => setSlideDraft(e.target.value)} />
+                <button onClick={() => saveParticipantLink('slide_url', slideDraft)}>Save</button>
+                {linkTarget?.slide_url && <a href={linkTarget.slide_url} target="_blank" rel="noreferrer">open ↗</a>}
+              </div>
+              <label>Output video — upload a file (best) </label>
+              <div className="row slide-row">
+                <input type="file" accept="video/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} />
+                {uploading && <span className="muted">Uploading…</span>}
+              </div>
+              <div className="row slide-row">
+                <input type="url" placeholder="…or a YouTube / direct .mp4 link" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
+                <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save</button>
+              </div>
+              <p className="muted">🖼 = deck saved · 🎬 = video saved. Editing here never changes what the audience sees.</p>
+            </>
+          ) : (
+            <p className="muted">Pick anyone to add their deck or video — no need to put them on screen first.</p>
+          )}
         </section>
 
         {/* 2 + 3. Score Input + Summary */}

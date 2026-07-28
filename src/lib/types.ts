@@ -44,6 +44,7 @@ export interface DisplayState {
   reveal_participant_id: string | null
   show_winner_score: boolean
   show_video?: boolean
+  chime_enabled?: boolean
   timer_seconds: number
   timer_running: boolean
   updated_at: string

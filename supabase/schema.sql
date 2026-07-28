@@ -15,6 +15,7 @@ create table if not exists participants (
 );
 
 alter table display_state add column if not exists show_video boolean default false;
+alter table display_state add column if not exists chime_enabled boolean default true;
 
 -- migrations for databases created before these columns existed (safe to re-run)
 alter table participants add column if not exists slide_url text;
