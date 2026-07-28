@@ -90,15 +90,6 @@ export default function AudienceView() {
   if (!supabase) return <div className="audience center"><p className="aud-note">Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p></div>
   if (!state) return <div className="audience center"><p className="aud-note">Connecting…</p></div>
 
-  // A shared deck takes over the whole screen (work-sample review, briefing) — no name, no timer.
-  if (state.shared_slide_url) {
-    return (
-      <div className="audience">
-        <iframe className="shared-frame" src={toEmbedUrl(state.shared_slide_url)} allow="fullscreen" allowFullScreen title="Shared slides" />
-      </div>
-    )
-  }
-
   const byId = (id: string | null | undefined) => participants.find((p) => p.id === id)
   const current = byId(state.current_participant_id)
   const winner = byId(state.reveal_participant_id)
@@ -109,6 +100,21 @@ export default function AudienceView() {
   const remaining = Math.max(0, state.timer_seconds - elapsed)
   const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
   const warning = state.timer_running && remaining <= WARN_AT && remaining > 0
+
+  // A shared deck takes over the whole screen (work-sample review, briefing) — no name, but keep the timer.
+  if (state.shared_slide_url) {
+    return (
+      <div className="audience">
+        <div className="pitch-stage">
+          <div className="pitch-bar">
+            <span className="pitch-name">{current ? current.name : EVENT.name}</span>
+            <span className={warning ? 'pitch-timer warn' : 'pitch-timer'}>{mmss}</span>
+          </div>
+          <iframe className="slide-frame" src={toEmbedUrl(state.shared_slide_url)} allow="fullscreen" allowFullScreen title="Shared slides" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="audience">
