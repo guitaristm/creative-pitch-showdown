@@ -62,6 +62,18 @@ function AdminInner() {
     }
   }
 
+  async function resetVotes() {
+    if (!window.confirm('Delete ALL employee votes? Use this to clear trial votes before the event. This cannot be undone.')) return
+    const { data, error } = await supabase!.rpc('reset_votes')
+    if (error)
+      notify({ kind: 'error', text: error.message.includes('reset_votes') ? 'Run the latest supabase/voting.sql first (adds reset_votes).' : error.message })
+    else if (data === 'voting_open') notify({ kind: 'error', text: 'Close voting first — refusing to wipe a live tally.' })
+    else {
+      notify({ kind: 'success', text: 'All votes deleted.' })
+      loadAll()
+    }
+  }
+
   async function addToken() {
     if (!rawToken.trim()) return
     const { data, error } = await supabase!.rpc('add_token', { p_raw: rawToken, p_label: tokenLabel || null })
@@ -134,6 +146,9 @@ function AdminInner() {
             <p className="muted">No current participant selected.</p>
           )}
           <p className="muted">Voting is {state?.voting_open ? '🟢 open' : '🔴 closed'}.</p>
+          <h2 style={{ marginTop: '1.2rem' }}>Testing / Rehearsal <span className="badge red">danger</span></h2>
+          <button className="danger" onClick={resetVotes} disabled={state?.voting_open}>🗑 Reset all employee votes</button>
+          <p className="muted">{state?.voting_open ? 'Close voting to enable this.' : 'Clears every vote — use after rehearsal, before the real event.'}</p>
         </section>
 
         <section className="panel wide">

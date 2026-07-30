@@ -144,6 +144,15 @@ create or replace function submit_criteria_vote(
     return 'ok';
   end $$;
 
+-- wipe every vote (rehearsal reset). Refuses while voting is open so a live tally can't be lost.
+create or replace function reset_votes() returns text
+  language plpgsql security definer set search_path = public as $$
+  begin
+    if exists (select 1 from voting_state where id = 1 and voting_open) then return 'voting_open'; end if;
+    delete from employee_votes;
+    return 'ok';
+  end $$;
+
 -- admin adds a token from its raw string (hashed here so it always matches vote-time hashing)
 create or replace function add_token(p_raw text, p_label text) returns text
   language plpgsql security definer set search_path = public as $$
