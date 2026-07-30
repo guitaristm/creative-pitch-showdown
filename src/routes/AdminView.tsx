@@ -122,6 +122,7 @@ function AdminInner() {
           </select>
           <label>Voting mode</label>
           <div className="mode-buttons">
+            <button className={state?.voting_mode === 'quality' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'quality' })}>Quality of work /10</button>
             <button className={state?.voting_mode === 'rating' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'rating' })}>Rating 1–5</button>
             <button className={state?.voting_mode === 'criteria' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'criteria' })}>Judge-style /20</button>
             <button className={state?.voting_mode === 'like' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'like' })}>Simple like</button>

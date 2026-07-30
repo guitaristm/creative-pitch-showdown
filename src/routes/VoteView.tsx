@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { CRITERIA } from '../lib/scoring.ts'
 import { supabase } from '../lib/supabase.ts'
-import { RATING_LABELS, VOTING, type Participant, type VotingState } from '../lib/types.ts'
+import { MODE_MAX, RATING_LABELS, VOTING, type Participant, type VotingState } from '../lib/types.ts'
 
 const CRIT_FIELDS = ['concept', 'visual', 'technical', 'business'] as const
 type CritDraft = Record<(typeof CRIT_FIELDS)[number], number | null>
@@ -121,7 +121,7 @@ export default function VoteView() {
 
   const mode = state?.voting_mode ?? 'rating'
   const open = state?.voting_open ?? false
-  const maxLabel = mode === 'criteria' ? '/20' : mode === 'like' ? '' : '/5'
+  const maxLabel = mode === 'like' ? '' : `/${MODE_MAX[mode]}`
 
   return (
     <div className="vote-wrap">
@@ -182,7 +182,18 @@ export default function VoteView() {
           {myVotes.has(selected.id) && (
             <p className="vote-note">You scored {myVotes.get(selected.id)!.vote_value}{maxLabel} — choose again to change it.</p>
           )}
-          {mode === 'like' ? (
+          {mode === 'quality' ? (
+            <>
+              <p className="vote-label">Quality of work — tap a score</p>
+              <div className="quality-grid">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((v) => (
+                  <button key={v} className={`quality-btn${myVotes.get(selected.id)?.vote_value === v ? ' sel' : ''}`}
+                    disabled={busy} onClick={() => castVote(v)}>{v}</button>
+                ))}
+              </div>
+              <p className="vote-note">1 = needs more development · 10 = excellent</p>
+            </>
+          ) : mode === 'like' ? (
             <button className="vote-btn primary big" disabled={busy} onClick={() => castVote(1)}>👏 Vote for {selected.name}</button>
           ) : mode === 'criteria' ? (
             <>

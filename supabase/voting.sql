@@ -54,10 +54,10 @@ create table if not exists voting_state (
   updated_at timestamptz default now()
 );
 
--- voting modes: like (1 tap), rating (1–5 stars), criteria (judge-style /20)
+-- voting modes: quality (Quality of work /10), rating (1–5), like (1 tap), criteria (judge-style /20)
 alter table voting_state drop constraint if exists voting_state_voting_mode_check;
 alter table voting_state add constraint voting_state_voting_mode_check
-  check (voting_mode in ('like', 'rating', 'criteria'));
+  check (voting_mode in ('like', 'rating', 'criteria', 'quality'));
 
 -- criteria mode stores the judge-style breakdown; vote_value holds the /20 total there
 alter table employee_votes
@@ -82,6 +82,8 @@ create or replace view participant_vote_summary as
     count(*) filter (where v.vote_value = 3) as rating_3_count,
     count(*) filter (where v.vote_value = 4) as rating_4_count,
     count(*) filter (where v.vote_value = 5) as rating_5_count,
+    min(v.vote_value) as min_value,
+    max(v.vote_value) as max_value,
     round(avg(v.concept_score), 2) as avg_concept,
     round(avg(v.visual_score), 2) as avg_visual,
     round(avg(v.technical_score), 2) as avg_technical,
@@ -89,6 +91,12 @@ create or replace view participant_vote_summary as
   from participants p
   left join employee_votes v on v.participant_id = p.id
   group by p.id, p.name, p.level;
+
+-- how many voters gave each score, per participant: powers the range / spread display.
+-- Aggregate only — no token, no identity.
+create or replace view vote_histogram as
+  select participant_id, vote_value, count(*)::int as votes
+  from employee_votes group by participant_id, vote_value;
 
 create or replace view current_participant_vote_summary as
   select s.* from participant_vote_summary s
@@ -111,11 +119,14 @@ create or replace function has_voted(p_participant uuid, p_token text) returns b
 -- (unique(participant_id, token_hash) still means one vote per token per participant).
 create or replace function submit_vote(p_participant uuid, p_token text, p_value int) returns text
   language plpgsql security definer set search_path = public as $$
-  declare v_hash text := hash_token(p_token); v_existed boolean;
+  declare v_hash text := hash_token(p_token); v_existed boolean; v_max int;
   begin
     if not exists (select 1 from voting_state where id = 1 and voting_open) then return 'closed'; end if;
     if p_participant is null then return 'no_participant'; end if;
-    if p_value < 1 or p_value > 5 then return 'bad_value'; end if;
+    -- the allowed range follows the active mode: like=1, rating=5, quality=10
+    select case voting_mode when 'like' then 1 when 'quality' then 10 else 5 end
+      into v_max from voting_state where id = 1;
+    if p_value < 1 or p_value > v_max then return 'bad_value'; end if;
     if not exists (select 1 from voting_tokens where token_hash = v_hash and is_active) then return 'invalid'; end if;
     select exists (select 1 from employee_votes where participant_id = p_participant and token_hash = v_hash) into v_existed;
     insert into employee_votes (participant_id, token_hash, vote_value)
@@ -202,6 +213,7 @@ create policy "update voting_tokens" on voting_tokens for update using (true) wi
 
 grant select on participant_vote_summary to anon;
 grant select on current_participant_vote_summary to anon;
+grant select on vote_histogram to anon;
 
 -- realtime so /vote and /dashboard react to admin changes
 do $$ begin alter publication supabase_realtime add table voting_state; exception when duplicate_object then null; end $$;

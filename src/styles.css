@@ -256,7 +256,18 @@ th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-
 .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .bar-row, .dist-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.35rem 0; }
 .bar-label { width: 90px; flex-shrink: 0; font-size: 0.9rem; }
-.bar-track { flex: 1; height: 20px; background: #141827; border-radius: 6px; overflow: hidden; }
+.bar-track { flex: 1; height: 20px; background: #141827; border-radius: 6px; overflow: hidden; position: relative; }
+.bar-label.small { width: 1.6rem; text-align: right; color: var(--muted); }
+.bar-value.wide-val { width: 6.5rem; }
+.range-band { position: absolute; top: 0; bottom: 0; background: rgba(109, 141, 255, 0.35); border-radius: 4px; }
+.avg-tick { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--green); transform: translateX(-1px); }
+.quality-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+.quality-btn {
+  padding: 0.9rem 0; font-size: 1.25rem; font-weight: 700; border-radius: 10px; cursor: pointer;
+  background: #141827; border: 1px solid var(--border); color: var(--text);
+}
+.quality-btn:hover:not(:disabled) { border-color: var(--accent); }
+.quality-btn.sel { background: var(--accent); color: #0a0c14; border-color: var(--accent); }
 .bar-fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width 0.4s; }
 .bar-value { width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 .dist-track { flex: 1; height: 22px; display: flex; border-radius: 6px; overflow: hidden; background: #141827; }

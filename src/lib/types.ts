@@ -72,7 +72,10 @@ export const EVENT = {
 }
 
 // ---- Employee anonymous voting ----
-export type VotingMode = 'like' | 'rating' | 'criteria'
+export type VotingMode = 'like' | 'rating' | 'criteria' | 'quality'
+
+/** Max score per voting mode — drives both the vote buttons and the dashboard scale. */
+export const MODE_MAX: Record<VotingMode, number> = { like: 1, rating: 5, quality: 10, criteria: 20 }
 
 export interface VotingState {
   id: number
@@ -102,6 +105,8 @@ export interface ParticipantVoteSummary {
   rating_3_count: number
   rating_4_count: number
   rating_5_count: number
+  min_value: number | null
+  max_value: number | null
   avg_concept: number | null
   avg_visual: number | null
   avg_technical: number | null
