@@ -72,7 +72,11 @@ alter table employee_votes add constraint employee_votes_vote_value_check
 insert into voting_state (id) values (1) on conflict (id) do nothing;
 
 -- --- dashboard views (owner-rights views: expose AGGREGATES to anon, never raw rows)
-create or replace view participant_vote_summary as
+-- dropped first: Postgres refuses `create or replace view` once column names/order change.
+-- Views hold no data — dropping and recreating them loses nothing.
+drop view if exists current_participant_vote_summary;
+drop view if exists participant_vote_summary;
+create view participant_vote_summary as
   select p.id as participant_id, p.name as participant_name, p.level,
     count(v.id) as vote_count,
     coalesce(sum(v.vote_value), 0) as total_vote_value,
