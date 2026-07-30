@@ -106,21 +106,34 @@ create or replace function has_voted(p_participant uuid, p_token text) returns b
       where participant_id = p_participant and token_hash = hash_token(p_token))
   $$;
 
--- returns: 'ok' | 'duplicate' | 'invalid' | 'closed' | 'bad_value' | 'no_participant'
+-- returns: 'ok' | 'updated' | 'invalid' | 'closed' | 'bad_value' | 'no_participant'
+-- A voter may change their mind while voting is open: the vote is replaced, never duplicated
+-- (unique(participant_id, token_hash) still means one vote per token per participant).
 create or replace function submit_vote(p_participant uuid, p_token text, p_value int) returns text
   language plpgsql security definer set search_path = public as $$
-  declare v_hash text := hash_token(p_token);
+  declare v_hash text := hash_token(p_token); v_existed boolean;
   begin
     if not exists (select 1 from voting_state where id = 1 and voting_open) then return 'closed'; end if;
     if p_participant is null then return 'no_participant'; end if;
     if p_value < 1 or p_value > 5 then return 'bad_value'; end if;
     if not exists (select 1 from voting_tokens where token_hash = v_hash and is_active) then return 'invalid'; end if;
-    begin
-      insert into employee_votes (participant_id, token_hash, vote_value) values (p_participant, v_hash, p_value);
-    exception when unique_violation then return 'duplicate';
-    end;
-    return 'ok';
+    select exists (select 1 from employee_votes where participant_id = p_participant and token_hash = v_hash) into v_existed;
+    insert into employee_votes (participant_id, token_hash, vote_value)
+      values (p_participant, v_hash, p_value)
+    on conflict (participant_id, token_hash) do update
+      set vote_value = excluded.vote_value, concept_score = null, visual_score = null,
+          technical_score = null, business_score = null;
+    return case when v_existed then 'updated' else 'ok' end;
   end $$;
+
+-- what this token has already voted — lets the voter review and change their own scores.
+-- Requires the raw token, so it reveals nothing to anyone else.
+create or replace function my_votes(p_token text)
+  returns table (participant_id uuid, vote_value int, concept_score int, visual_score int, technical_score int, business_score int)
+  language sql security definer set search_path = public as $$
+    select v.participant_id, v.vote_value, v.concept_score, v.visual_score, v.technical_score, v.business_score
+    from employee_votes v where v.token_hash = hash_token(p_token)
+  $$;
 
 -- judge-style criteria vote: four scores → /20 total, same token/duplicate/closed rules
 create or replace function submit_criteria_vote(
@@ -129,6 +142,7 @@ create or replace function submit_criteria_vote(
   language plpgsql security definer set search_path = public as $$
   declare v_hash text := hash_token(p_token);
           v_total int := coalesce(p_concept,0) + coalesce(p_visual,0) + coalesce(p_technical,0) + coalesce(p_business,0);
+          v_existed boolean;
   begin
     if not exists (select 1 from voting_state where id = 1 and voting_open) then return 'closed'; end if;
     if p_participant is null then return 'no_participant'; end if;
@@ -136,12 +150,14 @@ create or replace function submit_criteria_vote(
        or p_technical not between 0 and 4 or p_business not between 0 and 3
        or v_total < 1 then return 'bad_value'; end if;
     if not exists (select 1 from voting_tokens where token_hash = v_hash and is_active) then return 'invalid'; end if;
-    begin
-      insert into employee_votes (participant_id, token_hash, vote_value, concept_score, visual_score, technical_score, business_score)
-      values (p_participant, v_hash, v_total, p_concept, p_visual, p_technical, p_business);
-    exception when unique_violation then return 'duplicate';
-    end;
-    return 'ok';
+    select exists (select 1 from employee_votes where participant_id = p_participant and token_hash = v_hash) into v_existed;
+    insert into employee_votes (participant_id, token_hash, vote_value, concept_score, visual_score, technical_score, business_score)
+      values (p_participant, v_hash, v_total, p_concept, p_visual, p_technical, p_business)
+    on conflict (participant_id, token_hash) do update
+      set vote_value = excluded.vote_value, concept_score = excluded.concept_score,
+          visual_score = excluded.visual_score, technical_score = excluded.technical_score,
+          business_score = excluded.business_score;
+    return case when v_existed then 'updated' else 'ok' end;
   end $$;
 
 -- wipe every vote (rehearsal reset). Refuses while voting is open so a live tally can't be lost.
