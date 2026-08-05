@@ -261,6 +261,13 @@ th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-
 .bar-value.wide-val { width: 6.5rem; }
 .range-band { position: absolute; top: 0; bottom: 0; background: rgba(109, 141, 255, 0.35); border-radius: 4px; }
 .avg-tick { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--green); transform: translateX(-1px); }
+.judge-tick { position: absolute; top: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 1.1rem; line-height: 1; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9); }
+.stars { position: relative; display: inline-block; white-space: nowrap; letter-spacing: 1px; }
+.stars-bg { color: rgba(255, 255, 255, 0.18); }
+.stars-fg { position: absolute; left: 0; top: 0; overflow: hidden; color: var(--gold); }
+.judge-compare { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.7rem; margin-top: 0.6rem; background: #141827; border: 1px solid var(--border); border-radius: 8px; }
+.judge-compare > span:first-child { color: var(--muted); font-size: 0.85rem; }
+.red-note { color: var(--red); }
 .quality-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
 .quality-btn {
   padding: 0.9rem 0; font-size: 1.25rem; font-weight: 700; border-radius: 10px; cursor: pointer;
