@@ -197,6 +197,15 @@ th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-
 .rating-btn:disabled { opacity: 0.5; }
 .rating-num { font-size: 1.6rem; font-weight: 800; color: var(--accent); min-width: 1.6rem; }
 .rating-lbl { font-size: 1rem; }
+.vote-window { margin-top: 0.5rem; font-size: 1.1rem; font-weight: 700; color: var(--green); }
+.vote-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center; gap: 1.5rem;
+  padding: 0.6rem 1rem; background: rgba(62, 207, 142, 0.16);
+  border-bottom: 2px solid var(--green); backdrop-filter: blur(8px);
+}
+.vote-banner-text { font-size: 2rem; font-weight: 800; letter-spacing: 0.2em; color: var(--green); }
+.vote-banner-count { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--green); }
 .voted-box { display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
 .voted-check { font-size: 3rem; color: var(--green); }
 .crit-block { text-align: left; }
@@ -262,6 +271,21 @@ th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-
 .range-band { position: absolute; top: 0; bottom: 0; background: rgba(109, 141, 255, 0.35); border-radius: 4px; }
 .avg-tick { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--green); transform: translateX(-1px); }
 .judge-tick { position: absolute; top: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 1.1rem; line-height: 1; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9); }
+
+/* judge star vs employee range chart */
+.legend { display: flex; gap: 1.5rem; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0.3rem 0 0.8rem; }
+.legend-star { color: var(--gold); font-size: 1rem; }
+.legend-line { display: inline-block; width: 2.5rem; height: 3px; background: var(--text); vertical-align: middle; }
+.spread-row { display: flex; align-items: center; gap: 0.8rem; height: 2.4rem; }
+.spread-name { width: 6rem; flex-shrink: 0; font-size: 0.9rem; text-align: right; }
+.spread-axis { flex: 1; position: relative; height: 100%; }
+.spread-line { position: absolute; top: 50%; height: 3px; background: var(--text); transform: translateY(-50%); border-radius: 2px; }
+.spread-dot { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--text); transform: translate(-50%, -50%); }
+.spread-star { position: absolute; top: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 1.6rem; line-height: 1; text-shadow: 0 0 8px rgba(10, 12, 20, 0.9); }
+.spread-val { width: 6rem; flex-shrink: 0; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.spread-judge { color: var(--gold); }
+.spread-scale { display: flex; align-items: center; gap: 0.8rem; height: 1.4rem; margin-top: 0.2rem; }
+.scale-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.7rem; color: var(--muted); }
 .stars { position: relative; display: inline-block; white-space: nowrap; letter-spacing: 1px; }
 .stars-bg { color: rgba(255, 255, 255, 0.18); }
 .stars-fg { position: absolute; left: 0; top: 0; overflow: hidden; color: var(--gold); }

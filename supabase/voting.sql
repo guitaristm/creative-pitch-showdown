@@ -71,6 +71,11 @@ alter table employee_votes add constraint employee_votes_vote_value_check
 
 insert into voting_state (id) values (1) on conflict (id) do nothing;
 
+-- short voting window run by the operator after each pitch (duration is operator-set)
+alter table voting_state add column if not exists vote_timer_seconds int default 15;
+alter table voting_state add column if not exists vote_timer_running boolean default false;
+alter table voting_state add column if not exists vote_timer_started_at timestamptz;
+
 -- --- dashboard views (owner-rights views: expose AGGREGATES to anon, never raw rows)
 -- dropped first: Postgres refuses `create or replace view` once column names/order change.
 -- Views hold no data — dropping and recreating them loses nothing.

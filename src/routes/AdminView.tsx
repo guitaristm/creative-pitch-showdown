@@ -18,6 +18,8 @@ function AdminInner() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [tokens, setTokens] = useState<VotingToken[]>([])
   const [summary, setSummary] = useState<ParticipantVoteSummary[]>([])
+  const [now, setNow] = useState(Date.now())
+  const [windowSecs, setWindowSecs] = useState(15)
   const [rawToken, setRawToken] = useState('')
   const [tokenLabel, setTokenLabel] = useState('')
   const { toast, notify } = useToast()
@@ -49,6 +51,27 @@ function AdminInner() {
       clearInterval(poll)
     }
   }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    if (state?.vote_timer_seconds) setWindowSecs(state.vote_timer_seconds)
+  }, [state?.vote_timer_seconds])
+
+  const voteLeft =
+    state?.vote_timer_running && state.vote_timer_started_at
+      ? Math.max(0, (state.vote_timer_seconds ?? 15) - Math.floor((now - new Date(state.vote_timer_started_at).getTime()) / 1000))
+      : null
+
+  // when the window runs out, close voting automatically (this page is always open during the event)
+  useEffect(() => {
+    if (voteLeft === 0 && state?.vote_timer_running) {
+      patchState({ vote_timer_running: false, voting_open: false })
+    }
+  }, [voteLeft])
 
   if (!supabase) return <div className="operator"><div className="op-warning">Supabase is not configured.</div></div>
 
@@ -128,6 +151,23 @@ function AdminInner() {
             <button className={state?.voting_mode === 'like' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'like' })}>Simple like</button>
           </div>
           <p className="muted">Don’t switch modes mid-event — mixed vote scales make averages meaningless. Wipe votes first if you must switch.</p>
+          <label>Voting window after each pitch</label>
+          <div className="row slide-row">
+            <input type="number" min={5} max={300} className="order-input" value={windowSecs}
+              onChange={(e) => setWindowSecs(Number(e.target.value) || 15)} /> <span className="muted">seconds</span>
+            {state?.vote_timer_running ? (
+              <>
+                <span className="timer-display">{voteLeft ?? 0}s</span>
+                <button className="danger" onClick={() => patchState({ vote_timer_running: false, voting_open: false })}>■ Stop now</button>
+              </>
+            ) : (
+              <button className="primary" onClick={() => patchState({
+                vote_timer_seconds: windowSecs, vote_timer_running: true,
+                vote_timer_started_at: new Date().toISOString(), voting_open: true,
+              })}>▶ Start voting window</button>
+            )}
+          </div>
+          <p className="muted">Start opens voting and shows a countdown on the audience screen; it closes automatically when time is up (or press Stop).</p>
           <label className="check">
             <input type="checkbox" checked={state?.show_dashboard ?? false} onChange={(e) => patchState({ show_dashboard: e.target.checked })} />
             Make /dashboard public (no passcode)

@@ -28,6 +28,12 @@ export default function VoteView() {
   const [myVotes, setMyVotes] = useState<Map<string, MyVote>>(new Map())
   const [selected, setSelected] = useState<Participant | null>(null)
   const [crit, setCrit] = useState<CritDraft>(emptyCrit)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [])
 
   // live voting state + participant list
   useEffect(() => {
@@ -121,6 +127,10 @@ export default function VoteView() {
 
   const mode = state?.voting_mode ?? 'rating'
   const open = state?.voting_open ?? false
+  const voteLeft =
+    state?.vote_timer_running && state.vote_timer_started_at
+      ? Math.max(0, (state.vote_timer_seconds ?? 15) - Math.floor((now - new Date(state.vote_timer_started_at).getTime()) / 1000))
+      : null
   const maxLabel = mode === 'like' ? '' : `/${MODE_MAX[mode]}`
 
   return (
@@ -128,6 +138,9 @@ export default function VoteView() {
       <div className="vote-head">
         <p className="vote-kicker">{VOTING.subtitle}</p>
         <h1 className="vote-title">{VOTING.title}</h1>
+        {voteLeft !== null && voteLeft > 0 && (
+          <p className="vote-window">⏱ {voteLeft}s left to vote</p>
+        )}
       </div>
 
       {/* 1. token entry */}

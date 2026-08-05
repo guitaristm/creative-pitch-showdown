@@ -191,29 +191,47 @@ function DashboardInner() {
         </section>
 
         <section className="panel wide">
-          <h2>All pitchers — average and spread</h2>
-          {ranked.map((r) => (
-            <div key={r.participant_id} className="bar-row">
-              <span className="bar-label">{r.participant_name}</span>
-              <div className="bar-track">
-                {hasRange(r) && (
-                  <>
-                    <div className="range-band" style={{ left: `${((Number(r.min_value) - 1) / max) * 100}%`, width: `${((Number(r.max_value) - Number(r.min_value) + 1) / max) * 100}%` }} />
-                    <div className="avg-tick" style={{ left: `${(Number(r.average_rating) / max) * 100}%` }} />
-                  </>
-                )}
-                {judgeQuality.has(r.participant_id) && max === 10 && (
-                  <div className="judge-tick" title={`Judge ${judgeQuality.get(r.participant_id)!.avg.toFixed(1)} / 10`}
-                    style={{ left: `${(judgeQuality.get(r.participant_id)!.avg / max) * 100}%` }}>★</div>
-                )}
+          <h2>Judge score vs employee range</h2>
+          <div className="legend">
+            <span><span className="legend-star">★</span> Avg. judge score</span>
+            <span><span className="legend-line" /> Employee score range</span>
+          </div>
+          {ranked.map((r) => {
+            const pos = (v: number) => ((v - 1) / (max - 1)) * 100 // 1 → 0%, max → 100%
+            const judge = judgeQuality.get(r.participant_id)
+            return (
+              <div key={r.participant_id} className="spread-row">
+                <span className="spread-name">{r.participant_name}</span>
+                <div className="spread-axis">
+                  {hasRange(r) && (
+                    <>
+                      <div className="spread-line" style={{ left: `${pos(Number(r.min_value))}%`, width: `${pos(Number(r.max_value)) - pos(Number(r.min_value))}%` }} />
+                      <div className="spread-dot" style={{ left: `${pos(Number(r.min_value))}%` }} title={`lowest ${r.min_value}`} />
+                      <div className="spread-dot" style={{ left: `${pos(Number(r.max_value))}%` }} title={`highest ${r.max_value}`} />
+                    </>
+                  )}
+                  {judge && (
+                    <div className="spread-star" style={{ left: `${pos(judge.avg)}%` }} title={`judges ${judge.avg.toFixed(1)} / 10`}>★</div>
+                  )}
+                </div>
+                <span className="spread-val">
+                  {r.vote_count ? `${spread(r)}` : '—'}
+                  {judge && <span className="spread-judge"> ★{judge.avg.toFixed(1)}</span>}
+                </span>
               </div>
-              <span className="bar-value wide-val">
-                {r.vote_count ? `${Number(r.average_rating).toFixed(1)} (${spread(r)})` : '—'}
-              </span>
+            )
+          })}
+          <div className="spread-scale">
+            <span className="spread-name" />
+            <div className="spread-axis">
+              {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
+                <span key={v} className="scale-tick" style={{ left: `${((v - 1) / (max - 1)) * 100}%` }}>{v}</span>
+              ))}
             </div>
-          ))}
+            <span className="spread-val" />
+          </div>
           <p className="muted">
-            Blue band = employee score range · green line = employee average · ★ = judges' quality score · scale 1–{max}.
+            Line = spread of employee scores (lowest to highest) · ★ = judges' quality of work, same 1–{max} scale.
             Individual votes and voter identities are never shown.
           </p>
           <p className="muted red-note">⚠️ This screen shows judge scores — keep it private (don't tick “make dashboard public” in /admin).</p>

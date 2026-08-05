@@ -83,6 +83,9 @@ export interface VotingState {
   current_participant_id: string | null
   voting_mode: VotingMode
   show_dashboard: boolean
+  vote_timer_seconds?: number
+  vote_timer_running?: boolean
+  vote_timer_started_at?: string | null
   updated_at: string
 }
 

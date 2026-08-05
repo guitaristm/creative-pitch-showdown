@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { playChime, unlockAudio } from '../lib/chime.ts'
 import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
-import { AWARDS, EVENT, type DisplayState, type Participant } from '../lib/types.ts'
+import { AWARDS, EVENT, type DisplayState, type Participant, type VotingState } from '../lib/types.ts'
 
 /** Seconds remaining when the "wrap up" chime sounds (1:30). */
 const WARN_AT = 90
@@ -28,24 +28,28 @@ export default function AudienceView() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [winnerScore, setWinnerScore] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [vote, setVote] = useState<VotingState | null>(null)
   const [audioReady, setAudioReady] = useState(false)
   const chimedFor = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) return
     const load = async () => {
-      const [{ data: ds }, { data: ps }] = await Promise.all([
+      const [{ data: ds }, { data: ps }, { data: vs }] = await Promise.all([
         supabase!.from('display_state').select('*').eq('id', 1).single(),
         supabase!.from('participants').select('*'),
+        supabase!.from('voting_state').select('*').eq('id', 1).maybeSingle(),
       ])
       if (ds) setState(ds as DisplayState)
       if (ps) setParticipants(ps as Participant[])
+      setVote((vs as VotingState) ?? null)
     }
     load()
     const channel = supabase
       .channel('audience')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'display_state' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'voting_state' }, load)
       .subscribe()
     return () => {
       supabase!.removeChannel(channel)
@@ -101,10 +105,23 @@ export default function AudienceView() {
   const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
   const warning = state.timer_running && remaining <= WARN_AT && remaining > 0
 
+  // operator-run voting window — a banner over whatever screen is showing
+  const voteLeft =
+    vote?.vote_timer_running && vote.vote_timer_started_at
+      ? Math.max(0, (vote.vote_timer_seconds ?? 15) - Math.floor((now - new Date(vote.vote_timer_started_at).getTime()) / 1000))
+      : null
+  const voteBanner = voteLeft !== null && voteLeft > 0 && (
+    <div className="vote-banner">
+      <span className="vote-banner-text">VOTE NOW</span>
+      <span className="vote-banner-count">{voteLeft}</span>
+    </div>
+  )
+
   // A shared deck takes over the whole screen (work-sample review, briefing) — no name, but keep the timer.
   if (state.shared_slide_url) {
     return (
       <div className="audience">
+        {voteBanner}
         <div className="pitch-stage">
           <div className="pitch-bar">
             <span className="pitch-name">{current ? current.name : EVENT.name}</span>
@@ -119,6 +136,7 @@ export default function AudienceView() {
 
   return (
     <div className="audience">
+      {voteBanner}
       {state.screen_mode === 'opening' && (
         <div className="center fade-in">
           <p className="aud-kicker">{EVENT.subtitle}</p>
