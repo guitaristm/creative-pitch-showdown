@@ -153,14 +153,15 @@ export default function AudienceView() {
             <span className={warning ? 'pitch-timer warn' : 'pitch-timer'}>{mmss}</span>
           </div>
           {state.show_video && current.video_url ? (
+            // keyed by URL: a <video> keeps showing the previously loaded clip if only src changes
             isDirectVideo(current.video_url) ? (
-              <video key="video" className="slide-frame" src={current.video_url} controls playsInline />
+              <video key={current.video_url} className="slide-frame" src={current.video_url} controls playsInline />
             ) : (
-              <iframe key="video" className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
+              <iframe key={current.video_url} className="slide-frame" src={toVideoEmbedUrl(current.video_url)} allow="autoplay; fullscreen" allowFullScreen title={`${current.name} output video`} />
             )
           ) : (
             /* no allowFullScreen — see shared-slide note above */
-            <iframe key="slides" className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay" title={`${current.name} slides`} />
+            <iframe key={current.slide_url!} className="slide-frame" src={toEmbedUrl(current.slide_url!)} allow="autoplay" title={`${current.name} slides`} />
           )}
         </div>
       )}
