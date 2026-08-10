@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Toast, useToast } from '../components/Toast.tsx'
 import { playChime, unlockAudio } from '../lib/chime.ts'
+import { MAX_UPLOAD_MB, compressVideo } from '../lib/compressVideo.ts'
 import { CRITERIA, calculateParticipantScore, calculateRankings, calculateSuggestedAwards, validateScore } from '../lib/scoring.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, type DisplayState, type Judge, type Participant, type Score, type ScreenMode } from '../lib/types.ts'
@@ -40,6 +41,7 @@ export default function OperatorView() {
   const [linkTargetId, setLinkTargetId] = useState('')
   const [sharedDraft, setSharedDraft] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadNote, setUploadNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
   const { toast, notify } = useToast()
@@ -229,13 +231,35 @@ export default function OperatorView() {
     }
   }
 
-  async function uploadVideo(file: File) {
+  async function uploadVideo(original: File) {
     if (!supabase || !linkTargetId) return
     setUploading(true)
+    let file = original
+    // oversized files are re-encoded here so staff never need an external tool
+    if (original.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      try {
+        setUploadNote(`Compressing ${(original.size / 1048576).toFixed(0)} MB video — takes about as long as the clip…`)
+        file = await compressVideo(original, { onProgress: (pct) => setUploadNote(`Compressing… ${pct}%`) })
+        if (file.size > 50 * 1024 * 1024) {
+          setUploading(false)
+          setUploadNote('')
+          notify({ kind: 'error', text: `Still ${(file.size / 1048576).toFixed(0)} MB after compressing. Trim the clip or use HandBrake at 480p.` })
+          return
+        }
+        notify({ kind: 'success', text: `Compressed ${(original.size / 1048576).toFixed(0)} MB → ${(file.size / 1048576).toFixed(0)} MB. Uploading…` })
+      } catch (e) {
+        setUploading(false)
+        setUploadNote('')
+        notify({ kind: 'error', text: `Could not compress: ${(e as Error).message}` })
+        return
+      }
+    }
+    setUploadNote('Uploading…')
     const code = participants.find((p) => p.id === linkTargetId)?.participant_code ?? linkTargetId
     const path = `${code}-${Date.now()}.${file.name.split('.').pop() || 'mp4'}`
     const { error } = await supabase.storage.from('videos').upload(path, file, { upsert: true, contentType: file.type || 'video/mp4' })
     setUploading(false)
+    setUploadNote('')
     if (error) {
       notify({
         kind: 'error',
@@ -416,11 +440,14 @@ export default function OperatorView() {
                 <button onClick={() => saveParticipantLink('slide_url', slideDraft)}>Save</button>
                 {linkTarget?.slide_url && <a href={linkTarget.slide_url} target="_blank" rel="noreferrer">open ↗</a>}
               </div>
-              <label>Output video — upload a file (best) </label>
+              <label>Output video — upload a file (over {MAX_UPLOAD_MB} MB is compressed automatically)</label>
               <div className="row slide-row">
                 <input type="file" accept="video/*" disabled={uploading} onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} />
-                {uploading && <span className="muted">Uploading…</span>}
+                {uploading && <span className="muted">{uploadNote || 'Working…'}</span>}
               </div>
+              {uploading && uploadNote.startsWith('Compressing') && (
+                <p className="muted">Keep this tab open and in front — compressing plays the clip through once.</p>
+              )}
               <div className="row slide-row">
                 <input type="url" placeholder="…or a YouTube / direct .mp4 link" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
                 <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save</button>
