@@ -106,6 +106,7 @@ export default function OperatorView() {
   }, [selectedId, scores, judges])
 
   const currentId = display?.current_participant_id ?? null
+  const currentVideoUrl = participants.find((p) => p.id === currentId)?.video_url ?? null
   const linkTarget = participants.find((p) => p.id === linkTargetId)
 
   // default the link editor to whoever is on screen, but let the operator change it freely
@@ -369,14 +370,17 @@ export default function OperatorView() {
               <option key={p.id} value={p.id}>#{p.pitch_order} {p.name} ({p.level})</option>
             ))}
           </select>
-          {participants.find((p) => p.id === currentId)?.video_url && (
-            <button
-              className={display?.show_video ? 'active' : ''}
-              onClick={() => saveDisplay({ show_video: !display?.show_video })}
-            >
-              {display?.show_video ? '🖼 Back to slides' : '🎬 Show output video'}
-            </button>
-          )}
+          <label>Now Pitching screen shows</label>
+          <div className="mode-buttons">
+            <button className={!display?.show_video ? 'active' : ''} onClick={() => saveDisplay({ show_video: false })}>🖼 Slides</button>
+            <button className={display?.show_video ? 'active' : ''} disabled={!currentVideoUrl}
+              onClick={() => saveDisplay({ show_video: true })}>🎬 Output video</button>
+          </div>
+          {!currentId ? (
+            <p className="muted">Select a current participant first.</p>
+          ) : !currentVideoUrl ? (
+            <p className="muted">No video uploaded for {nameOf(currentId)} yet — add it in “Slides &amp; Video Links”.</p>
+          ) : null}
           <label>Reveal award</label>
           <select value={display?.selected_award ?? ''} onChange={(e) => saveDisplay({ selected_award: e.target.value || null })}>
             <option value="">— none —</option>
@@ -452,7 +456,14 @@ export default function OperatorView() {
                 <input type="url" placeholder="…or a YouTube / direct .mp4 link" value={videoDraft} onChange={(e) => setVideoDraft(e.target.value)} />
                 <button onClick={() => saveParticipantLink('video_url', videoDraft)}>Save</button>
               </div>
-              <p className="muted">🖼 = deck saved · 🎬 = video saved. Editing here never changes what the audience sees.</p>
+              {linkTarget?.video_url && (
+                <button className="primary" onClick={() => saveDisplay({
+                  current_participant_id: linkTargetId, screen_mode: 'now_pitching', show_video: true,
+                })}>
+                  ▶ Play {linkTarget.name}'s video on the audience screen now
+                </button>
+              )}
+              <p className="muted">🖼 = deck saved · 🎬 = video saved. Saving links here never changes what the audience sees — only the button above does.</p>
             </>
           ) : (
             <p className="muted">Pick anyone to add their deck or video — no need to put them on screen first.</p>
