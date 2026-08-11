@@ -21,6 +21,10 @@ function AdminInner() {
   const [turnout, setTurnout] = useState<{ token_label: string | null; is_active: boolean; votes_cast: number }[]>([])
   const [now, setNow] = useState(Date.now())
   const [windowSecs, setWindowSecs] = useState(15)
+  // score-level data stays unloaded until deliberately revealed — this screen gets opened in rooms
+  const [scoreRows, setScoreRows] = useState<{ token_label: string; participant_name: string; vote_value: number; created_at: string }[] | null>(null)
+  const [codeFilter, setCodeFilter] = useState('')
+  const [pitcherFilter, setPitcherFilter] = useState('')
   const [rawToken, setRawToken] = useState('')
   const [tokenLabel, setTokenLabel] = useState('')
   const { toast, notify } = useToast()
@@ -100,6 +104,25 @@ function AdminInner() {
     }
   }
 
+  async function loadScoresByCode() {
+    const { data, error } = await supabase!.from('votes_by_token').select('*').order('token_label').order('pitch_order')
+    if (error) {
+      notify({ kind: 'error', text: /votes_by_token/.test(error.message) ? 'Missing view — run the votes_by_token block from supabase/voting.sql.' : error.message })
+      return
+    }
+    setScoreRows((data as typeof scoreRows) ?? [])
+  }
+
+  function downloadScoresCsv() {
+    if (!scoreRows?.length) return
+    const csv = ['code,pitcher,score,time', ...scoreRows.map((r) => `${r.token_label},${r.participant_name},${r.vote_value},${r.created_at}`)].join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = `votes-by-code-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   async function addToken() {
     if (!rawToken.trim()) return
     const { data, error } = await supabase!.rpc('add_token', { p_raw: rawToken, p_label: tokenLabel || null })
@@ -130,6 +153,9 @@ function AdminInner() {
   const voted = activeTurnout.filter((t) => t.votes_cast > 0).length
   const notVoted = activeTurnout.filter((t) => t.votes_cast === 0)
   const totalVotes = activeTurnout.reduce((s, t) => s + t.votes_cast, 0)
+  const visibleScores = (scoreRows ?? []).filter(
+    (r) => (!codeFilter || r.token_label === codeFilter) && (!pitcherFilter || r.participant_name === pitcherFilter),
+  )
   const cur = summary[0]
 
   return (
@@ -219,6 +245,47 @@ function AdminInner() {
             <p className="muted">Every active code has voted at least once. 🎉</p>
           )}
           <p className="muted">Shows activity per code only — never what anyone voted.</p>
+        </section>
+
+        <section className="panel wide">
+          <h2>Scores by Code <span className="badge red">shows how each code voted</span></h2>
+          {scoreRows === null ? (
+            <>
+              <p className="muted">Hidden by default — this reveals what every code scored each pitcher.</p>
+              <button className="ghost" onClick={loadScoresByCode}>👁 Reveal scores by code</button>
+            </>
+          ) : (
+            <>
+              <div className="row slide-row">
+                <select value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)}>
+                  <option value="">All codes</option>
+                  {[...new Set(scoreRows.map((r) => r.token_label))].map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={pitcherFilter} onChange={(e) => setPitcherFilter(e.target.value)}>
+                  <option value="">All pitchers</option>
+                  {[...new Set(scoreRows.map((r) => r.participant_name))].map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <button className="ghost" onClick={downloadScoresCsv}>⬇ CSV</button>
+                <button className="ghost" onClick={() => { setScoreRows(null); setCodeFilter(''); setPitcherFilter('') }}>Hide</button>
+              </div>
+              <p className="muted">{visibleScores.length} of {scoreRows.length} votes shown</p>
+              <table>
+                <thead><tr><th>Code</th><th>Pitcher</th><th>Score</th><th>Time</th></tr></thead>
+                <tbody>
+                  {visibleScores.slice(0, 200).map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.token_label}</td>
+                      <td>{r.participant_name}</td>
+                      <td><strong>{r.vote_value}</strong></td>
+                      <td className="muted">{new Date(r.created_at).toLocaleTimeString()}</td>
+                    </tr>
+                  ))}
+                  {!visibleScores.length && <tr><td colSpan={4} className="muted">No votes yet.</td></tr>}
+                </tbody>
+              </table>
+              {visibleScores.length > 200 && <p className="muted">Showing first 200 — use the filters or CSV for the rest.</p>}
+            </>
+          )}
         </section>
 
         <section className="panel wide">

@@ -107,6 +107,14 @@ create or replace view vote_histogram as
   select participant_id, vote_value, count(*)::int as votes
   from employee_votes group by participant_id, vote_value;
 
+-- Every score with the code that cast it. Anonymous unless read alongside a person↔code list,
+-- so the admin screen keeps this behind a click. See README "Voting security limitations".
+create or replace view votes_by_token as
+  select t.token_label, p.name as participant_name, p.pitch_order, v.vote_value, v.created_at
+  from employee_votes v
+  join voting_tokens t on t.token_hash = v.token_hash
+  join participants p on p.id = v.participant_id;
+
 -- turnout per code: how many votes each code has cast. Activity only — never what they voted.
 create or replace view token_turnout as
   select t.token_label, t.is_active, count(v.id)::int as votes_cast, max(v.created_at) as last_vote_at
@@ -231,6 +239,7 @@ grant select on participant_vote_summary to anon;
 grant select on current_participant_vote_summary to anon;
 grant select on vote_histogram to anon;
 grant select on token_turnout to anon;
+grant select on votes_by_token to anon;
 
 -- realtime so /vote and /dashboard react to admin changes
 do $$ begin alter publication supabase_realtime add table voting_state; exception when duplicate_object then null; end $$;
