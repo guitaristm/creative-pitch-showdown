@@ -42,6 +42,36 @@ function knock(ac: AudioContext, out: AudioNode, t: number, freq: number, gainPe
   noise.start(t)
 }
 
+/** Decoded custom chime, cached per URL so the 1:30 cue never waits on a download. */
+let fileUrl: string | null = null
+let fileBuf: AudioBuffer | null = null
+
+export async function preloadChimeFile(url: string | null) {
+  if (!url || url === fileUrl) return
+  fileUrl = url
+  fileBuf = null
+  try {
+    const bytes = await (await fetch(url)).arrayBuffer()
+    if (!ctx) ctx = new AudioContext()
+    fileBuf = await ctx.decodeAudioData(bytes)
+  } catch {
+    fileBuf = null // fall back to the built-in tone
+  }
+}
+
+/** Play the uploaded sound; returns false if it isn't available so the caller can fall back. */
+export function playChimeFile(gain = 1): boolean {
+  if (!fileBuf || !ctx) return false
+  if (ctx.state === 'suspended') void ctx.resume()
+  const src = ctx.createBufferSource()
+  src.buffer = fileBuf
+  const g = ctx.createGain()
+  g.gain.value = gain
+  src.connect(g).connect(ctx.destination)
+  src.start()
+  return true
+}
+
 /** Slack-style "knock brush" — two soft woodblock taps. Reminder, not alarm. */
 export function playChime() {
   if (!ctx) ctx = new AudioContext()

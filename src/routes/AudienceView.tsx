@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Fireworks } from '../components/Fireworks.tsx'
 import { playCelebration, playDrumRoll } from '../lib/celebrate.ts'
-import { playChime, unlockAudio } from '../lib/chime.ts'
+import { playChime, playChimeFile, preloadChimeFile, unlockAudio } from '../lib/chime.ts'
 import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
 import { AWARDS, EVENT, type DisplayState, type Participant, type VotingState } from '../lib/types.ts'
@@ -72,6 +72,10 @@ export default function AudienceView() {
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    void preloadChimeFile(state?.chime_url ?? null)
+  }, [state?.chime_url])
+
   // browsers block sound until the page is interacted with — arm it on the first click/key
   useEffect(() => {
     const arm = () => setAudioReady(unlockAudio())
@@ -124,7 +128,7 @@ export default function AudienceView() {
     const runId = `${state.current_participant_id}-${state.updated_at}`
     if (left <= WARN_AT && left > WARN_AT - 5 && chimedFor.current !== runId) {
       chimedFor.current = runId
-      playChime()
+      if (!playChimeFile()) playChime() // uploaded sound if there is one, else the built-in tone
     }
   }, [now, state?.timer_running, state?.timer_seconds, state?.updated_at, state?.current_participant_id, state?.chime_enabled])
 

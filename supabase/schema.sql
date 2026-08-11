@@ -16,6 +16,8 @@ create table if not exists participants (
 
 alter table display_state add column if not exists show_video boolean default false;
 alter table display_state add column if not exists chime_enabled boolean default true;
+-- optional custom 1:30 reminder sound (uploaded audio file); null = built-in tone
+alter table display_state add column if not exists chime_url text;
 -- a deck shown to the room independently of any participant (work-sample review, briefing, etc.)
 alter table display_state add column if not exists shared_slide_url text;
 -- bumped by the operator to fire the winner celebration on the audience screen

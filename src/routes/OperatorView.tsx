@@ -1,7 +1,7 @@
 // OPERATOR VIEW — private. Never show this route on the projector.
 import { useEffect, useMemo, useState } from 'react'
 import { Toast, useToast } from '../components/Toast.tsx'
-import { playChime, unlockAudio } from '../lib/chime.ts'
+import { playChime, playChimeFile, preloadChimeFile, unlockAudio } from '../lib/chime.ts'
 import { MAX_UPLOAD_MB, compressVideo } from '../lib/compressVideo.ts'
 import { CRITERIA, calculateParticipantScore, calculateRankings, calculateSuggestedAwards, validateScore } from '../lib/scoring.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -183,12 +183,12 @@ export default function OperatorView() {
     if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
     let { error } = await supabase.from('display_state').update(changes).eq('id', 1)
     // a column not migrated yet — save the rest, and hint only if that toggle was the whole point
-    for (const col of ['show_video', 'chime_enabled', 'shared_slide_url', 'celebrate_at'] as const) {
+    for (const col of ['show_video', 'chime_enabled', 'shared_slide_url', 'celebrate_at', 'chime_url'] as const) {
       if (!error?.message.includes(col)) continue
       delete changes[col]
       if (Object.keys(changes).length) ({ error } = await supabase.from('display_state').update(changes).eq('id', 1))
       if (col in patch && Object.keys(patch).length === 1) {
-        const type = col === 'shared_slide_url' ? 'text' : col === 'celebrate_at' ? 'timestamptz'
+        const type = col === 'shared_slide_url' || col === 'chime_url' ? 'text' : col === 'celebrate_at' ? 'timestamptz'
           : col === 'show_video' ? 'boolean default false' : 'boolean default true'
         notify({ kind: 'error', text: `Missing column — run in Supabase SQL editor: alter table display_state add column ${col} ${type};` })
         return
@@ -274,6 +274,21 @@ export default function OperatorView() {
     const { data } = supabase.storage.from('videos').getPublicUrl(path)
     setVideoDraft(data.publicUrl)
     await saveParticipantLink('video_url', data.publicUrl)
+  }
+
+  async function uploadChime(file: File) {
+    if (!supabase) return
+    setUploadNote('Uploading sound…')
+    setUploading(true)
+    const path = `chime-${Date.now()}.${file.name.split('.').pop() || 'mp3'}`
+    const { error } = await supabase.storage.from('videos').upload(path, file, { upsert: true, contentType: file.type || 'audio/mpeg' })
+    setUploading(false)
+    setUploadNote('')
+    if (error) return notify({ kind: 'error', text: `Upload failed: ${error.message}` })
+    const { data } = supabase.storage.from('videos').getPublicUrl(path)
+    await saveDisplay({ chime_url: data.publicUrl })
+    await preloadChimeFile(data.publicUrl)
+    notify({ kind: 'success', text: 'Custom chime saved — press Test chime to hear it.' })
   }
 
   async function fillTestScores() {
@@ -433,9 +448,19 @@ export default function OperatorView() {
               <input type="checkbox" checked={display?.chime_enabled !== false} onChange={(e) => saveDisplay({ chime_enabled: e.target.checked })} />
               🔔 Chime at 1:30 left
             </label>
-            <button className="ghost" onClick={() => { unlockAudio(); playChime() }}>Test chime (this device)</button>
+            <button className="ghost" onClick={() => { unlockAudio(); if (!playChimeFile()) playChime() }}>Test chime (this device)</button>
           </div>
-          <p className="muted">Chime plays on the audience machine (one click there enables its sound).</p>
+          <div className="row slide-row">
+            <input type="file" accept="audio/*" disabled={uploading}
+              onChange={(e) => e.target.files?.[0] && uploadChime(e.target.files[0])} />
+            {display?.chime_url && (
+              <button className="ghost" onClick={() => saveDisplay({ chime_url: null })}>Use built-in sound</button>
+            )}
+          </div>
+          <p className="muted">
+            {display?.chime_url ? 'Custom sound in use.' : 'Built-in woodblock in use.'} Upload an mp3/wav to replace it.
+            Chime plays on the audience machine (one click there enables its sound).
+          </p>
         </section>
 
         {/* 1b. Slides & video — independent of the display, so decks can be loaded any time */}
