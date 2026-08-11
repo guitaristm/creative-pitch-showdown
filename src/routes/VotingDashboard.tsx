@@ -44,6 +44,8 @@ function DashboardInner() {
   const [state, setState] = useState<VotingState | null>(null)
   const [filter, setFilter] = useState<Level | 'All'>('All')
   const [focusId, setFocusId] = useState('')
+  // judge scores stay hidden until someone deliberately reveals them (display-only, per session)
+  const [showJudge, setShowJudge] = useState(false)
   const [judgeQuality, setJudgeQuality] = useState<Map<string, { avg: number; count: number }>>(new Map())
 
   useEffect(() => {
@@ -109,6 +111,11 @@ function DashboardInner() {
               <button key={f} className={filter === f ? 'active' : ''} onClick={() => setFilter(f)}>{f}</button>
             ))}
           </div>
+          <div className="dash-filter">
+            <button className={showJudge ? 'active' : ''} onClick={() => setShowJudge((v) => !v)}>
+              {showJudge ? '★ Hide judge scores' : '★ Show judge scores'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -123,7 +130,7 @@ function DashboardInner() {
         <section className="panel">
           <h2>Ranking</h2>
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Level</th><th>Avg /{max}</th><th>Range</th><th>Votes</th><th>Judge /10</th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Level</th><th>Avg /{max}</th><th>Range</th><th>Votes</th>{showJudge && <th>Judge /10</th>}</tr></thead>
             <tbody>
               {ranked.map((r, i) => (
                 <tr key={r.participant_id} className={r.participant_id === focusId ? 'tied' : ''}
@@ -134,11 +141,13 @@ function DashboardInner() {
                   <td><strong>{r.vote_count ? Number(r.average_rating).toFixed(2) : '—'}</strong></td>
                   <td>{spread(r)}</td>
                   <td>{r.vote_count}</td>
-                  <td>
-                    {judgeQuality.has(r.participant_id) ? (
-                      <><Stars value={judgeQuality.get(r.participant_id)!.avg} /> <span className="muted">{judgeQuality.get(r.participant_id)!.avg.toFixed(1)}</span></>
-                    ) : <span className="muted">—</span>}
-                  </td>
+                  {showJudge && (
+                    <td>
+                      {judgeQuality.has(r.participant_id) ? (
+                        <><Stars value={judgeQuality.get(r.participant_id)!.avg} /> <span className="muted">{judgeQuality.get(r.participant_id)!.avg.toFixed(1)}</span></>
+                      ) : <span className="muted">—</span>}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -167,7 +176,9 @@ function DashboardInner() {
               </div>
               <div className="judge-compare">
                 <span>Judges' quality of work</span>
-                {judgeQuality.has(focus.participant_id) ? (
+                {!showJudge ? (
+                  <button className="ghost" onClick={() => setShowJudge(true)}>★ Click to reveal</button>
+                ) : judgeQuality.has(focus.participant_id) ? (
                   <>
                     <Stars value={judgeQuality.get(focus.participant_id)!.avg} />
                     <strong>{judgeQuality.get(focus.participant_id)!.avg.toFixed(1)} / 10</strong>
@@ -193,8 +204,11 @@ function DashboardInner() {
         <section className="panel wide">
           <h2>Judge score vs employee range</h2>
           <div className="legend">
-            <span><span className="legend-star">★</span> Avg. judge score</span>
+            {showJudge && <span><span className="legend-star">★</span> Avg. judge score</span>}
             <span><span className="legend-line" /> Employee score range</span>
+            {!showJudge && (
+              <button className="ghost legend-reveal" onClick={() => setShowJudge(true)}>★ Click to show judge scores</button>
+            )}
           </div>
           {ranked.map((r) => {
             const pos = (v: number) => ((v - 1) / (max - 1)) * 100 // 1 → 0%, max → 100%
@@ -210,13 +224,13 @@ function DashboardInner() {
                       <div className="spread-dot" style={{ left: `${pos(Number(r.max_value))}%` }} title={`highest ${r.max_value}`} />
                     </>
                   )}
-                  {judge && (
+                  {judge && showJudge && (
                     <div className="spread-star" style={{ left: `${pos(judge.avg)}%` }} title={`judges ${judge.avg.toFixed(1)} / 10`}>★</div>
                   )}
                 </div>
                 <span className="spread-val">
                   {r.vote_count ? `${spread(r)}` : '—'}
-                  {judge && <span className="spread-judge"> ★{judge.avg.toFixed(1)}</span>}
+                  {judge && showJudge && <span className="spread-judge"> ★{judge.avg.toFixed(1)}</span>}
                 </span>
               </div>
             )
@@ -234,7 +248,9 @@ function DashboardInner() {
             Line = spread of employee scores (lowest to highest) · ★ = judges' quality of work, same 1–{max} scale.
             Individual votes and voter identities are never shown.
           </p>
-          <p className="muted red-note">⚠️ This screen shows judge scores — keep it private (don't tick “make dashboard public” in /admin).</p>
+          {showJudge && (
+            <p className="muted red-note">⚠️ Judge scores are visible — keep this screen off the projector while they are shown.</p>
+          )}
         </section>
 
         <section className="panel wide">
