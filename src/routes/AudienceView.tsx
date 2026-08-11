@@ -38,7 +38,8 @@ export default function AudienceView() {
   const chimedFor = useRef<string | null>(null)
   // 'rolling' = drum roll, name still hidden · 'party' = name revealed, fireworks + applause
   const [phase, setPhase] = useState<'idle' | 'rolling' | 'party'>('idle')
-  const celebratedAt = useRef<string | null>(null)
+  // undefined until the first load: whatever value is already stored must NOT fire a celebration
+  const celebratedAt = useRef<string | null | undefined>(undefined)
   const celebrating = phase === 'party'
 
   useEffect(() => {
@@ -89,11 +90,20 @@ export default function AudienceView() {
     }
   }, [state?.screen_mode, state?.show_winner_score, state?.reveal_participant_id])
 
-  // celebration fires when the operator bumps celebrate_at: 5s drum roll, then the name drops
+  // celebration fires when the operator bumps celebrate_at: drum roll first, name only at the crash.
+  // Timings are anchored to the timestamp, so the reveal lands exactly DRUM_ROLL_SECONDS after the click.
   useEffect(() => {
-    const stamp = state?.celebrate_at
+    if (!state) return
+    const stamp = state.celebrate_at ?? null
+    // first sight of the row: remember it, don't replay an old celebration on page load
+    if (celebratedAt.current === undefined) {
+      celebratedAt.current = stamp
+      return
+    }
     if (!stamp || celebratedAt.current === stamp) return
     celebratedAt.current = stamp
+    // Roll runs a full DRUM_ROLL_SECONDS from the moment this screen receives the trigger.
+    // Deliberately not derived from the timestamp: operator and projector clocks differ.
     setPhase('rolling')
     playDrumRoll(DRUM_ROLL_SECONDS)
     const reveal = setTimeout(() => {
@@ -105,7 +115,7 @@ export default function AudienceView() {
       clearTimeout(reveal)
       clearTimeout(settle)
     }
-  }, [state?.celebrate_at])
+  }, [state?.celebrate_at, !!state])
 
   // "wrap up" chime at 1:30 left — once per timer run (updated_at changes on every start/reset)
   useEffect(() => {
@@ -131,6 +141,12 @@ export default function AudienceView() {
   const remaining = Math.max(0, state.timer_seconds - elapsed)
   const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
   const warning = state.timer_running && remaining <= WARN_AT && remaining > 0
+
+  // Computed during render: a brand-new trigger must hide the name on the FIRST frame.
+  // Waiting for the effect (which runs after paint) would flash the winner for one frame.
+  const freshTrigger =
+    celebratedAt.current !== undefined && !!state.celebrate_at && state.celebrate_at !== celebratedAt.current
+  const rolling = phase === 'rolling' || freshTrigger
 
   // operator-run voting window — a banner over whatever screen is showing
   const voteLeft =
@@ -222,7 +238,7 @@ export default function AudienceView() {
         </div>
       )}
 
-      {state.screen_mode === 'winner_reveal' && phase === 'rolling' && (
+      {state.screen_mode === 'winner_reveal' && rolling && (
         <div className="center suspense">
           <p className="aud-kicker gold">{award?.label ?? 'Award'}</p>
           <h1 className="aud-title-md suspense-text">AND THE WINNER IS…</h1>
@@ -230,7 +246,7 @@ export default function AudienceView() {
         </div>
       )}
 
-      {state.screen_mode === 'winner_reveal' && phase !== 'rolling' && (
+      {state.screen_mode === 'winner_reveal' && !rolling && (
         <div className={celebrating ? 'center reveal celebrating' : 'center reveal'}>
           <p className="aud-kicker gold">{award?.label ?? 'Award'}</p>
           <h1 className="aud-title gold">{winner?.name ?? '…'}</h1>
