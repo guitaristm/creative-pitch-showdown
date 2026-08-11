@@ -1,5 +1,7 @@
 // AUDIENCE VIEW — shown on projector. Never imports rankings, scores, or operator controls.
 import { useEffect, useRef, useState } from 'react'
+import { Fireworks } from '../components/Fireworks.tsx'
+import { playCelebration } from '../lib/celebrate.ts'
 import { playChime, unlockAudio } from '../lib/chime.ts'
 import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -31,6 +33,8 @@ export default function AudienceView() {
   const [vote, setVote] = useState<VotingState | null>(null)
   const [audioReady, setAudioReady] = useState(false)
   const chimedFor = useRef<string | null>(null)
+  const [celebrating, setCelebrating] = useState(false)
+  const celebratedAt = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) return
@@ -79,6 +83,15 @@ export default function AudienceView() {
       fetchWinnerScore(state.reveal_participant_id).then(setWinnerScore)
     }
   }, [state?.screen_mode, state?.show_winner_score, state?.reveal_participant_id])
+
+  // celebration fires when the operator bumps celebrate_at (once per bump)
+  useEffect(() => {
+    const stamp = state?.celebrate_at
+    if (!stamp || celebratedAt.current === stamp) return
+    celebratedAt.current = stamp
+    setCelebrating(true)
+    playCelebration(7)
+  }, [state?.celebrate_at])
 
   // "wrap up" chime at 1:30 left — once per timer run (updated_at changes on every start/reset)
   useEffect(() => {
@@ -137,6 +150,7 @@ export default function AudienceView() {
   return (
     <div className="audience">
       {voteBanner}
+      {celebrating && <Fireworks seconds={7} onDone={() => setCelebrating(false)} />}
       {state.screen_mode === 'opening' && (
         <div className="center fade-in">
           <p className="aud-kicker">{EVENT.subtitle}</p>
@@ -195,7 +209,7 @@ export default function AudienceView() {
       )}
 
       {state.screen_mode === 'winner_reveal' && (
-        <div className="center reveal">
+        <div className={celebrating ? 'center reveal celebrating' : 'center reveal'}>
           <p className="aud-kicker gold">{award?.label ?? 'Award'}</p>
           <h1 className="aud-title gold">{winner?.name ?? '…'}</h1>
           {winner && <p className="aud-sub">{winner.level}</p>}

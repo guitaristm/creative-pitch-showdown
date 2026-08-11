@@ -183,12 +183,13 @@ export default function OperatorView() {
     if ('timer_seconds' in patch || 'timer_running' in patch) changes.updated_at = new Date().toISOString()
     let { error } = await supabase.from('display_state').update(changes).eq('id', 1)
     // a column not migrated yet — save the rest, and hint only if that toggle was the whole point
-    for (const col of ['show_video', 'chime_enabled', 'shared_slide_url'] as const) {
+    for (const col of ['show_video', 'chime_enabled', 'shared_slide_url', 'celebrate_at'] as const) {
       if (!error?.message.includes(col)) continue
       delete changes[col]
       if (Object.keys(changes).length) ({ error } = await supabase.from('display_state').update(changes).eq('id', 1))
       if (col in patch && Object.keys(patch).length === 1) {
-        const type = col === 'shared_slide_url' ? 'text' : col === 'show_video' ? 'boolean default false' : 'boolean default true'
+        const type = col === 'shared_slide_url' ? 'text' : col === 'celebrate_at' ? 'timestamptz'
+          : col === 'show_video' ? 'boolean default false' : 'boolean default true'
         notify({ kind: 'error', text: `Missing column — run in Supabase SQL editor: alter table display_state add column ${col} ${type};` })
         return
       }
@@ -396,10 +397,22 @@ export default function OperatorView() {
             ))}
           </select>
           {display?.selected_award && awards.get(display.selected_award) && (
-            <button className="ghost" onClick={() => saveDisplay({ reveal_participant_id: awards.get(display.selected_award!) ?? null })}>
-              Use suggested winner: {nameOf(awards.get(display.selected_award))}
-            </button>
+            <>
+              <button className="celebrate-btn" onClick={() => saveDisplay({
+                reveal_participant_id: awards.get(display.selected_award!) ?? null,
+                screen_mode: 'winner_reveal',
+                celebrate_at: new Date().toISOString(),
+              })}>
+                🎉 Reveal {nameOf(awards.get(display.selected_award))} + celebrate
+              </button>
+              <button className="ghost" onClick={() => saveDisplay({ reveal_participant_id: awards.get(display.selected_award!) ?? null })}>
+                Set winner quietly (no reveal, no sound)
+              </button>
+            </>
           )}
+          <button className="ghost" onClick={() => saveDisplay({ celebrate_at: new Date().toISOString() })}>
+            🎆 Celebrate again
+          </button>
           <label className="check">
             <input type="checkbox" checked={display?.show_winner_score ?? false} onChange={(e) => saveDisplay({ show_winner_score: e.target.checked })} />
             Show winner score on reveal

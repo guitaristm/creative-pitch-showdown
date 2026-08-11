@@ -46,6 +46,7 @@ export interface DisplayState {
   show_video?: boolean
   chime_enabled?: boolean
   shared_slide_url?: string | null
+  celebrate_at?: string | null
   timer_seconds: number
   timer_running: boolean
   updated_at: string

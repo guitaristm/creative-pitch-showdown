@@ -18,6 +18,8 @@ alter table display_state add column if not exists show_video boolean default fa
 alter table display_state add column if not exists chime_enabled boolean default true;
 -- a deck shown to the room independently of any participant (work-sample review, briefing, etc.)
 alter table display_state add column if not exists shared_slide_url text;
+-- bumped by the operator to fire the winner celebration on the audience screen
+alter table display_state add column if not exists celebrate_at timestamptz;
 
 -- migrations for databases created before these columns existed (safe to re-run)
 alter table participants add column if not exists slide_url text;

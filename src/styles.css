@@ -78,6 +78,31 @@ input::placeholder { color: var(--muted); }
 .slide-frame { flex: 1; width: 100%; border: 0; background: #000; }
 video.slide-frame { object-fit: contain; min-height: 0; }
 
+/* celebration */
+.fireworks { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 30; pointer-events: none; }
+.celebrating { animation: celebrate-pop 1.1s cubic-bezier(0.2, 1.4, 0.35, 1) both; }
+.celebrating .aud-title {
+  animation: winner-throb 1.4s ease-in-out infinite alternate;
+  text-shadow: 0 0 40px rgba(245, 197, 66, 0.9), 0 0 120px rgba(245, 197, 66, 0.5);
+}
+.celebrating .aud-kicker { animation: kicker-slide 0.8s cubic-bezier(0.2, 1.5, 0.3, 1) both; }
+@keyframes celebrate-pop {
+  0% { transform: scale(0.55) rotate(-4deg); opacity: 0; }
+  45% { transform: scale(1.18) rotate(2deg); opacity: 1; }
+  70% { transform: scale(0.96) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes winner-throb {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(1.06); filter: brightness(1.25); }
+}
+@keyframes kicker-slide { from { transform: translateY(-40px); opacity: 0; letter-spacing: 0.8em; } to { opacity: 1; } }
+.celebrate-btn {
+  background: linear-gradient(90deg, var(--gold), #ff9f43) !important;
+  color: #0a0c14 !important; font-weight: 800 !important; border: 0 !important;
+  padding: 0.7rem 1rem !important; font-size: 1rem !important;
+}
+
 .fade-in { animation: fadeIn 0.8s ease both; }
 .reveal { animation: reveal 1.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; } }
