@@ -90,21 +90,33 @@ function noise(a: AudioContext): AudioBuffer {
   return noiseBuf
 }
 
-/** A single snare tap: filtered noise with a very fast decay. */
-function snare(a: AudioContext, out: AudioNode, t: number, gain: number) {
+/** A single deep tom hit: low tuned body + lowpassed skin thud. Timpani, not snare. */
+function boom(a: AudioContext, out: AudioNode, t: number, gain: number) {
+  const f0 = 78 + Math.random() * 22 // slight detune per hit so the roll breathes
+  const osc = a.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(f0, t)
+  osc.frequency.exponentialRampToValueAtTime(f0 * 0.62, t + 0.11)
+  const g = a.createGain()
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(gain, t + 0.005)
+  g.gain.exponentialRampToValueAtTime(0.0008, t + 0.14)
+  osc.connect(g).connect(out)
+  osc.start(t)
+  osc.stop(t + 0.17)
+
   const src = a.createBufferSource()
   src.buffer = noise(a)
-  src.playbackRate.value = 0.9 + Math.random() * 0.3 // vary so hits don't sound cloned
-  const bp = a.createBiquadFilter()
-  bp.type = 'bandpass'
-  bp.frequency.value = 1600 + Math.random() * 900
-  bp.Q.value = 0.8
-  const g = a.createGain()
-  g.gain.setValueAtTime(gain, t)
-  g.gain.exponentialRampToValueAtTime(0.0005, t + 0.055)
-  src.connect(bp).connect(g).connect(out)
+  src.playbackRate.value = 0.55 + Math.random() * 0.25
+  const lp = a.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 380 + Math.random() * 240
+  const ng = a.createGain()
+  ng.gain.setValueAtTime(gain * 0.45, t)
+  ng.gain.exponentialRampToValueAtTime(0.0005, t + 0.07)
+  src.connect(lp).connect(ng).connect(out)
   src.start(t)
-  src.stop(t + 0.08)
+  src.stop(t + 0.1)
 }
 
 /**
@@ -113,15 +125,22 @@ function snare(a: AudioContext, out: AudioNode, t: number, gain: number) {
  */
 export function playDrumRoll(seconds = 5) {
   const a = ac()
+  // low hits overlap as the roll tightens — compress so the build stays loud without clipping
+  const comp = a.createDynamicsCompressor()
+  comp.threshold.value = -20
+  comp.ratio.value = 10
+  comp.attack.value = 0.002
+  comp.release.value = 0.15
+  comp.connect(a.destination)
   const master = a.createGain()
-  master.gain.value = 1
-  master.connect(a.destination)
+  master.gain.value = 0.55 // headroom: overlapping low sines sum fast
+  master.connect(comp)
   const t0 = a.currentTime + 0.05
 
   let t = t0
   while (t < t0 + seconds) {
     const p = (t - t0) / seconds // 0 → 1
-    snare(a, master, t, 0.12 + p * 0.5)
+    boom(a, master, t, 0.22 + p * 0.45)
     t += 0.125 - Math.pow(p, 0.75) * 0.097 // 125ms → 28ms between hits
   }
 
@@ -134,22 +153,34 @@ export function playDrumRoll(seconds = 5) {
   hp.type = 'highpass'
   hp.frequency.value = 3500
   const cg = a.createGain()
-  cg.gain.setValueAtTime(0.6, end)
+  cg.gain.setValueAtTime(0.45, end)
   cg.gain.exponentialRampToValueAtTime(0.0005, end + 1.6)
   crash.connect(hp).connect(cg).connect(master)
   crash.start(end)
   crash.stop(end + 1.7)
 
+  // the climax hit: deep kick plus a sub tail you feel more than hear
   const kick = a.createOscillator()
   const kg = a.createGain()
   kick.type = 'sine'
-  kick.frequency.setValueAtTime(140, end)
-  kick.frequency.exponentialRampToValueAtTime(45, end + 0.2)
-  kg.gain.setValueAtTime(0.7, end)
-  kg.gain.exponentialRampToValueAtTime(0.0005, end + 0.4)
+  kick.frequency.setValueAtTime(120, end)
+  kick.frequency.exponentialRampToValueAtTime(32, end + 0.32)
+  kg.gain.setValueAtTime(0.75, end)
+  kg.gain.exponentialRampToValueAtTime(0.0005, end + 0.75)
   kick.connect(kg).connect(master)
   kick.start(end)
-  kick.stop(end + 0.45)
+  kick.stop(end + 0.8)
+
+  const sub = a.createOscillator()
+  const sg = a.createGain()
+  sub.type = 'sine'
+  sub.frequency.setValueAtTime(46, end)
+  sg.gain.setValueAtTime(0, end)
+  sg.gain.linearRampToValueAtTime(0.45, end + 0.02)
+  sg.gain.exponentialRampToValueAtTime(0.0005, end + 1.1)
+  sub.connect(sg).connect(master)
+  sub.start(end)
+  sub.stop(end + 1.2)
 }
 
 /** Applause bed + a handful of fireworks scattered across the celebration. */
