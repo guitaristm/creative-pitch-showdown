@@ -403,7 +403,7 @@ export default function OperatorView() {
                 screen_mode: 'winner_reveal',
                 celebrate_at: new Date().toISOString(),
               })}>
-                🎉 Reveal {nameOf(awards.get(display.selected_award))} + celebrate
+                🥁 Drum roll → reveal {nameOf(awards.get(display.selected_award))}
               </button>
               <button className="ghost" onClick={() => saveDisplay({ reveal_participant_id: awards.get(display.selected_award!) ?? null })}>
                 Set winner quietly (no reveal, no sound)
@@ -411,8 +411,9 @@ export default function OperatorView() {
             </>
           )}
           <button className="ghost" onClick={() => saveDisplay({ celebrate_at: new Date().toISOString() })}>
-            🎆 Celebrate again
+            🥁 Replay drum roll + celebration
           </button>
+          <p className="muted">5-second drum roll, then the name lands with applause and fireworks.</p>
           <label className="check">
             <input type="checkbox" checked={display?.show_winner_score ?? false} onChange={(e) => saveDisplay({ show_winner_score: e.target.checked })} />
             Show winner score on reveal

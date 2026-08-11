@@ -1,7 +1,7 @@
 // AUDIENCE VIEW — shown on projector. Never imports rankings, scores, or operator controls.
 import { useEffect, useRef, useState } from 'react'
 import { Fireworks } from '../components/Fireworks.tsx'
-import { playCelebration } from '../lib/celebrate.ts'
+import { playCelebration, playDrumRoll } from '../lib/celebrate.ts'
 import { playChime, unlockAudio } from '../lib/chime.ts'
 import { isDirectVideo, toEmbedUrl, toVideoEmbedUrl } from '../lib/embed.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -9,6 +9,9 @@ import { AWARDS, EVENT, type DisplayState, type Participant, type VotingState } 
 
 /** Seconds remaining when the "wrap up" chime sounds (1:30). */
 const WARN_AT = 90
+
+/** Drum roll length before the winner's name appears — the reveal lands on the crash. */
+const DRUM_ROLL_SECONDS = 5
 
 /** Only what the audience is allowed to see for the winner: final score, fetched on demand. */
 async function fetchWinnerScore(participantId: string): Promise<number | null> {
@@ -33,8 +36,10 @@ export default function AudienceView() {
   const [vote, setVote] = useState<VotingState | null>(null)
   const [audioReady, setAudioReady] = useState(false)
   const chimedFor = useRef<string | null>(null)
-  const [celebrating, setCelebrating] = useState(false)
+  // 'rolling' = drum roll, name still hidden · 'party' = name revealed, fireworks + applause
+  const [phase, setPhase] = useState<'idle' | 'rolling' | 'party'>('idle')
   const celebratedAt = useRef<string | null>(null)
+  const celebrating = phase === 'party'
 
   useEffect(() => {
     if (!supabase) return
@@ -84,13 +89,22 @@ export default function AudienceView() {
     }
   }, [state?.screen_mode, state?.show_winner_score, state?.reveal_participant_id])
 
-  // celebration fires when the operator bumps celebrate_at (once per bump)
+  // celebration fires when the operator bumps celebrate_at: 5s drum roll, then the name drops
   useEffect(() => {
     const stamp = state?.celebrate_at
     if (!stamp || celebratedAt.current === stamp) return
     celebratedAt.current = stamp
-    setCelebrating(true)
-    playCelebration(7)
+    setPhase('rolling')
+    playDrumRoll(DRUM_ROLL_SECONDS)
+    const reveal = setTimeout(() => {
+      setPhase('party')
+      playCelebration(7)
+    }, DRUM_ROLL_SECONDS * 1000)
+    const settle = setTimeout(() => setPhase('idle'), DRUM_ROLL_SECONDS * 1000 + 7000)
+    return () => {
+      clearTimeout(reveal)
+      clearTimeout(settle)
+    }
   }, [state?.celebrate_at])
 
   // "wrap up" chime at 1:30 left — once per timer run (updated_at changes on every start/reset)
@@ -150,7 +164,7 @@ export default function AudienceView() {
   return (
     <div className="audience">
       {voteBanner}
-      {celebrating && <Fireworks seconds={7} onDone={() => setCelebrating(false)} />}
+      {celebrating && <Fireworks seconds={7} />}
       {state.screen_mode === 'opening' && (
         <div className="center fade-in">
           <p className="aud-kicker">{EVENT.subtitle}</p>
@@ -208,7 +222,15 @@ export default function AudienceView() {
         </div>
       )}
 
-      {state.screen_mode === 'winner_reveal' && (
+      {state.screen_mode === 'winner_reveal' && phase === 'rolling' && (
+        <div className="center suspense">
+          <p className="aud-kicker gold">{award?.label ?? 'Award'}</p>
+          <h1 className="aud-title-md suspense-text">AND THE WINNER IS…</h1>
+          <div className="drum-dots"><span /><span /><span /></div>
+        </div>
+      )}
+
+      {state.screen_mode === 'winner_reveal' && phase !== 'rolling' && (
         <div className={celebrating ? 'center reveal celebrating' : 'center reveal'}>
           <p className="aud-kicker gold">{award?.label ?? 'Award'}</p>
           <h1 className="aud-title gold">{winner?.name ?? '…'}</h1>
