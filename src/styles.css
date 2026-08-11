@@ -191,6 +191,8 @@ th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-
 
 .award-row select { margin-bottom: 0.2rem; }
 .health { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+.chase-list { display: flex; flex-wrap: wrap; gap: 0.35rem; max-height: 11rem; overflow-y: auto; margin-top: 0.3rem; }
+.chase-list .chip { background: rgba(245, 197, 66, 0.14); border-color: rgba(245, 197, 66, 0.4); color: var(--gold); }
 
 .toast {
   position: fixed; top: 1rem; right: 1rem; z-index: 50; padding: 0.7rem 1.2rem;

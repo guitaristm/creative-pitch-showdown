@@ -18,6 +18,7 @@ function AdminInner() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [tokens, setTokens] = useState<VotingToken[]>([])
   const [summary, setSummary] = useState<ParticipantVoteSummary[]>([])
+  const [turnout, setTurnout] = useState<{ token_label: string | null; is_active: boolean; votes_cast: number }[]>([])
   const [now, setNow] = useState(Date.now())
   const [windowSecs, setWindowSecs] = useState(15)
   const [rawToken, setRawToken] = useState('')
@@ -26,12 +27,14 @@ function AdminInner() {
 
   async function loadAll() {
     if (!supabase) return
-    const [vs, ps, tk, sm] = await Promise.all([
+    const [vs, ps, tk, sm, to] = await Promise.all([
       supabase.from('voting_state').select('*').eq('id', 1).single(),
       supabase.from('participants').select('*').order('pitch_order'),
       supabase.from('voting_tokens').select('id,token_hash,token_label,is_active').order('created_at'),
       supabase.from('current_participant_vote_summary').select('*'),
+      supabase.from('token_turnout').select('token_label,is_active,votes_cast').order('token_label'),
     ])
+    setTurnout((to.data as typeof turnout) ?? [])
     if (vs.data) setState(vs.data as VotingState)
     if (ps.data) setParticipants(ps.data as Participant[])
     if (tk.data) setTokens(tk.data as VotingToken[])
@@ -123,6 +126,10 @@ function AdminInner() {
   }
 
   const activeTokens = tokens.filter((t) => t.is_active).length
+  const activeTurnout = turnout.filter((t) => t.is_active)
+  const voted = activeTurnout.filter((t) => t.votes_cast > 0).length
+  const notVoted = activeTurnout.filter((t) => t.votes_cast === 0)
+  const totalVotes = activeTurnout.reduce((s, t) => s + t.votes_cast, 0)
   const cur = summary[0]
 
   return (
@@ -190,6 +197,28 @@ function AdminInner() {
           <h2 style={{ marginTop: '1.2rem' }}>Testing / Rehearsal <span className="badge red">danger</span></h2>
           <button className="danger" onClick={resetVotes} disabled={state?.voting_open}>🗑 Reset all employee votes</button>
           <p className="muted">{state?.voting_open ? 'Close voting to enable this.' : 'Clears every vote — use after rehearsal, before the real event.'}</p>
+        </section>
+
+        <section className="panel">
+          <h2>Turnout <span className="badge">{voted} / {activeTokens} codes voted</span></h2>
+          <ul className="health">
+            <li>Codes that have voted: <strong>{voted}</strong></li>
+            <li>Codes with no votes yet: <strong>{notVoted.length}</strong></li>
+            <li>Total votes cast: <strong>{totalVotes}</strong></li>
+          </ul>
+          {!turnout.length ? (
+            <p className="muted">Missing view — run the <code>token_turnout</code> block from supabase/voting.sql to enable turnout tracking.</p>
+          ) : notVoted.length > 0 ? (
+            <>
+              <label>Not voted yet — chase these codes</label>
+              <div className="chase-list">
+                {notVoted.map((t) => <span key={t.token_label} className="chip">{t.token_label}</span>)}
+              </div>
+            </>
+          ) : (
+            <p className="muted">Every active code has voted at least once. 🎉</p>
+          )}
+          <p className="muted">Shows activity per code only — never what anyone voted.</p>
         </section>
 
         <section className="panel wide">

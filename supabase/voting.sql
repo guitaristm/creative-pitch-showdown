@@ -107,6 +107,13 @@ create or replace view vote_histogram as
   select participant_id, vote_value, count(*)::int as votes
   from employee_votes group by participant_id, vote_value;
 
+-- turnout per code: how many votes each code has cast. Activity only — never what they voted.
+create or replace view token_turnout as
+  select t.token_label, t.is_active, count(v.id)::int as votes_cast, max(v.created_at) as last_vote_at
+  from voting_tokens t
+  left join employee_votes v on v.token_hash = t.token_hash
+  group by t.token_label, t.is_active;
+
 create or replace view current_participant_vote_summary as
   select s.* from participant_vote_summary s
   join voting_state vs on vs.id = 1 and vs.current_participant_id = s.participant_id;
@@ -223,6 +230,7 @@ create policy "update voting_tokens" on voting_tokens for update using (true) wi
 grant select on participant_vote_summary to anon;
 grant select on current_participant_vote_summary to anon;
 grant select on vote_histogram to anon;
+grant select on token_turnout to anon;
 
 -- realtime so /vote and /dashboard react to admin changes
 do $$ begin alter publication supabase_realtime add table voting_state; exception when duplicate_object then null; end $$;
