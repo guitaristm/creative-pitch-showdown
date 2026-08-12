@@ -174,8 +174,9 @@ export default function OperatorView() {
     }
   }
 
-  async function saveDisplay(patch: Partial<DisplayState>) {
-    if (!supabase || !display) return
+  /** Returns false if nothing was saved, so callers don't report success on a failed write. */
+  async function saveDisplay(patch: Partial<DisplayState>): Promise<boolean> {
+    if (!supabase || !display) return false
     // patch only the changed fields — writing the whole row races with rapid consecutive edits.
     // updated_at is the audience timer anchor: bump it only on timer operations, otherwise
     // unrelated edits mid-pitch (e.g. pre-selecting the reveal award) restart the countdown.
@@ -191,14 +192,16 @@ export default function OperatorView() {
         const type = col === 'shared_slide_url' || col === 'chime_url' ? 'text' : col === 'celebrate_at' ? 'timestamptz'
           : col === 'show_video' ? 'boolean default false' : 'boolean default true'
         notify({ kind: 'error', text: `Missing column — run in Supabase SQL editor: alter table display_state add column ${col} ${type};` })
-        return
+        return false
       }
     }
-    if (error) notify({ kind: 'error', text: `Display update failed: ${error.message}` })
-    else {
-      setDisplay((prev) => (prev ? { ...prev, ...changes } : prev))
-      notify({ kind: 'success', text: 'Display state saved — audience screen updated.' })
+    if (error) {
+      notify({ kind: 'error', text: `Display update failed: ${error.message}` })
+      return false
     }
+    setDisplay((prev) => (prev ? { ...prev, ...changes } : prev))
+    notify({ kind: 'success', text: 'Display state saved — audience screen updated.' })
+    return true
   }
 
   async function saveOverride(awardKey: string, participantId: string) {
@@ -286,7 +289,7 @@ export default function OperatorView() {
     setUploadNote('')
     if (error) return notify({ kind: 'error', text: `Upload failed: ${error.message}` })
     const { data } = supabase.storage.from('videos').getPublicUrl(path)
-    await saveDisplay({ chime_url: data.publicUrl })
+    if (!(await saveDisplay({ chime_url: data.publicUrl }))) return // saveDisplay already said why
     await preloadChimeFile(data.publicUrl)
     notify({ kind: 'success', text: 'Custom chime saved — press Test chime to hear it.' })
   }
