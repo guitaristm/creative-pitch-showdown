@@ -19,6 +19,8 @@ function AdminInner() {
   const [tokens, setTokens] = useState<VotingToken[]>([])
   const [summary, setSummary] = useState<ParticipantVoteSummary[]>([])
   const [turnout, setTurnout] = useState<{ token_label: string | null; is_active: boolean; votes_cast: number }[]>([])
+  const [operatorCurrentId, setOperatorCurrentId] = useState<string | null>(null)
+  const [autoFollow, setAutoFollow] = useState(() => localStorage.getItem('vote_follow_operator') === '1')
   const [now, setNow] = useState(Date.now())
   const [windowSecs, setWindowSecs] = useState(15)
   // score-level data stays unloaded until deliberately revealed — this screen gets opened in rooms
@@ -31,14 +33,16 @@ function AdminInner() {
 
   async function loadAll() {
     if (!supabase) return
-    const [vs, ps, tk, sm, to] = await Promise.all([
+    const [vs, ps, tk, sm, to, ds] = await Promise.all([
       supabase.from('voting_state').select('*').eq('id', 1).single(),
       supabase.from('participants').select('*').order('pitch_order'),
       supabase.from('voting_tokens').select('id,token_hash,token_label,is_active').order('created_at'),
       supabase.from('current_participant_vote_summary').select('*'),
       supabase.from('token_turnout').select('token_label,is_active,votes_cast').order('token_label'),
+      supabase.from('display_state').select('current_participant_id').eq('id', 1).single(),
     ])
     setTurnout((to.data as typeof turnout) ?? [])
+    setOperatorCurrentId((ds.data?.current_participant_id as string | null) ?? null)
     if (vs.data) setState(vs.data as VotingState)
     if (ps.data) setParticipants(ps.data as Participant[])
     if (tk.data) setTokens(tk.data as VotingToken[])
@@ -51,6 +55,7 @@ function AdminInner() {
     const ch = supabase
       .channel('admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'voting_state' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'display_state' }, loadAll)
       .subscribe()
     const poll = setInterval(loadAll, 4000) // employee_votes isn't anon-readable → poll the summary
     return () => {
@@ -67,6 +72,12 @@ function AdminInner() {
   useEffect(() => {
     if (state?.vote_timer_seconds) setWindowSecs(state.vote_timer_seconds)
   }, [state?.vote_timer_seconds])
+
+  // follow the operator's current participant, so voters always rate whoever is on screen
+  useEffect(() => {
+    if (!autoFollow || !state || !operatorCurrentId) return
+    if (operatorCurrentId !== state.current_participant_id) patchState({ current_participant_id: operatorCurrentId })
+  }, [autoFollow, operatorCurrentId, state?.current_participant_id])
 
   const voteLeft =
     state?.vote_timer_running && state.vote_timer_started_at
@@ -169,13 +180,29 @@ function AdminInner() {
             <input type="checkbox" checked={state?.voting_open ?? false} onChange={(e) => patchState({ voting_open: e.target.checked })} />
             Voting open
           </label>
-          <label>Current participant</label>
+          <label>Current participant (who voters rate)</label>
           <select value={state?.current_participant_id ?? ''} onChange={(e) => patchState({ current_participant_id: e.target.value || null })}>
             <option value="">— none (voters see “waiting”) —</option>
             {participants.map((p) => (
               <option key={p.id} value={p.id}>#{p.pitch_order} {p.name} ({p.level})</option>
             ))}
           </select>
+          <div className="row slide-row">
+            <span className="muted">
+              Operator screen: <strong>{participants.find((p) => p.id === operatorCurrentId)?.name ?? 'none'}</strong>
+              {operatorCurrentId && operatorCurrentId === state?.current_participant_id && ' ✓ in sync'}
+            </span>
+            {operatorCurrentId && operatorCurrentId !== state?.current_participant_id && (
+              <button className="primary" onClick={() => patchState({ current_participant_id: operatorCurrentId })}>
+                ⇄ Sync from operator
+              </button>
+            )}
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={autoFollow}
+              onChange={(e) => { setAutoFollow(e.target.checked); localStorage.setItem('vote_follow_operator', e.target.checked ? '1' : '0') }} />
+            Auto-follow the operator's current participant
+          </label>
           <label>Voting mode</label>
           <div className="mode-buttons">
             <button className={state?.voting_mode === 'quality' ? 'active' : ''} onClick={() => patchState({ voting_mode: 'quality' })}>Quality of work /10</button>
