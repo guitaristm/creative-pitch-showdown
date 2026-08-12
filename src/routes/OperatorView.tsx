@@ -51,6 +51,11 @@ export default function OperatorView() {
     return () => clearInterval(t)
   }, [])
 
+  // without this the Test chime button falls back to the built-in tone after a refresh
+  useEffect(() => {
+    void preloadChimeFile(display?.chime_url ?? null)
+  }, [display?.chime_url])
+
   async function loadAll() {
     if (!supabase) return
     const [ps, js, sc, ds, ov, fc] = await Promise.all([
