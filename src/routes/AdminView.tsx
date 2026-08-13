@@ -147,6 +147,19 @@ function AdminInner() {
     }
   }
 
+  // ponytail: "never voted" is the cheap proxy for "duplicate/unhanded-out code"
+  async function deactivateUnused() {
+    const unused = turnout.filter((t) => t.is_active && t.votes_cast === 0).map((t) => t.token_label)
+    if (!unused.length) return notify({ kind: 'error', text: 'Every active code has voted — nothing to deactivate.' })
+    if (!window.confirm(`Deactivate ${unused.length} codes that have never voted? Anyone holding one can no longer vote.`)) return
+    const { error } = await supabase!.from('voting_tokens').update({ is_active: false }).in('token_label', unused)
+    if (error) notify({ kind: 'error', text: error.message })
+    else {
+      notify({ kind: 'success', text: `Deactivated ${unused.length} unused codes.` })
+      loadAll()
+    }
+  }
+
   async function toggleToken(t: VotingToken) {
     const { error } = await supabase!.from('voting_tokens').update({ is_active: !t.is_active }).eq('id', t.id)
     if (error) notify({ kind: 'error', text: error.message })
@@ -321,6 +334,7 @@ function AdminInner() {
             <input className="vote-input inline" placeholder="Raw token e.g. EMP-7KQ2-MN9A" value={rawToken} onChange={(e) => setRawToken(e.target.value)} />
             <input className="vote-input inline" placeholder="Label (non-identifying)" value={tokenLabel} onChange={(e) => setTokenLabel(e.target.value)} />
             <button onClick={addToken}>Add token</button>
+            <button className="danger" onClick={deactivateUnused}>🧹 Deactivate codes that never voted</button>
           </div>
           <p className="muted">Raw tokens are hashed on the server — only the hash is stored. Generate a batch with <code>scripts/generateTokens.ts</code>.</p>
           <table>
