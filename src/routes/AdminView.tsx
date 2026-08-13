@@ -160,6 +160,17 @@ function AdminInner() {
     }
   }
 
+  async function deleteSelfVotes() {
+    if (!window.confirm('Delete every vote where the code label matches the pitcher name?')) return
+    const { data, error } = await supabase!.rpc('delete_self_votes')
+    if (error) notify({ kind: 'error', text: /delete_self_votes/.test(error.message) ? 'Missing function — run the delete_self_votes block from supabase/voting.sql.' : error.message })
+    else {
+      notify({ kind: 'success', text: `Removed ${data ?? 0} self-vote(s).` })
+      loadAll()
+      setScoreRows(null)
+    }
+  }
+
   async function toggleToken(t: VotingToken) {
     const { error } = await supabase!.from('voting_tokens').update({ is_active: !t.is_active }).eq('id', t.id)
     if (error) notify({ kind: 'error', text: error.message })
@@ -262,6 +273,7 @@ function AdminInner() {
           <p className="muted">Voting is {state?.voting_open ? '🟢 open' : '🔴 closed'}.</p>
           <h2 style={{ marginTop: '1.2rem' }}>Testing / Rehearsal <span className="badge red">danger</span></h2>
           <button className="danger" onClick={resetVotes} disabled={state?.voting_open}>🗑 Reset all employee votes</button>
+          <button className="ghost" onClick={deleteSelfVotes}>🚫 Delete self-votes (code name = pitcher name)</button>
           <p className="muted">{state?.voting_open ? 'Close voting to enable this.' : 'Clears every vote — use after rehearsal, before the real event.'}</p>
         </section>
 

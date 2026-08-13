@@ -204,6 +204,19 @@ create or replace function reset_votes() returns text
     return 'ok';
   end $$;
 
+-- drop votes where the code's label matches the pitcher's name (self-votes).
+-- ponytail: name matching only — works because labels are names; useless if labels are anonymous.
+create or replace function delete_self_votes() returns int
+  language plpgsql security definer set search_path = public as $$
+  declare n int;
+  begin
+    delete from employee_votes v using voting_tokens t, participants p
+    where v.token_hash = t.token_hash and v.participant_id = p.id
+      and lower(trim(t.token_label)) = lower(trim(p.name));
+    get diagnostics n = row_count;
+    return n;
+  end $$;
+
 -- admin adds a token from its raw string (hashed here so it always matches vote-time hashing)
 create or replace function add_token(p_raw text, p_label text) returns text
   language plpgsql security definer set search_path = public as $$
